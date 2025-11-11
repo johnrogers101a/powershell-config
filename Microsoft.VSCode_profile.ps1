@@ -1,0 +1,2 @@
+Import-Module $PSScriptRoot/Modules/ProfileSetup
+Initialize-PowerShellProfile
