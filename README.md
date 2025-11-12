@@ -21,17 +21,25 @@ A cross-platform PowerShell profile configuration with custom modules and Oh My 
 
 > **Note:** Make sure your Azure Blob Storage container has anonymous read access enabled for public installation.
 
-#### Windows (PowerShell)
+#### Windows (PowerShell 5.1 or later)
 ```powershell
-Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; $wc = New-Object System.Net.WebClient; $wc.CachePolicy = New-Object System.Net.Cache.RequestCachePolicy([System.Net.Cache.RequestCacheLevel]::NoCacheNoStore); iex ($wc.DownloadString('https://stprofilewus3.blob.core.windows.net/profile-config/install.ps1'))
+irm https://stprofilewus3.blob.core.windows.net/profile-config/bootstrap.ps1 | iex
 ```
 
-#### macOS (Terminal)
+**Works on fresh Windows installs!** The bootstrap script will:
+- Detect your PowerShell version
+- Install PowerShell 7+ if you're on PowerShell 5.x
+- Run the full installer in PowerShell 7+
+
+#### macOS (Terminal - requires PowerShell 7+)
 ```bash
-pwsh -NoProfile -ExecutionPolicy Bypass -Command "\$wc = New-Object System.Net.WebClient; \$wc.CachePolicy = New-Object System.Net.Cache.RequestCachePolicy([System.Net.Cache.RequestCacheLevel]::NoCacheNoStore); iex (\$wc.DownloadString('https://stprofilewus3.blob.core.windows.net/profile-config/install.ps1'))"
+pwsh -NoProfile -ExecutionPolicy Bypass -Command "irm https://stprofilewus3.blob.core.windows.net/profile-config/install.ps1 | iex"
 ```
 
-**Don't have PowerShell installed?** The installer will detect this and install it automatically for your platform!
+**Don't have PowerShell on macOS?** Install it first:
+```bash
+brew install --cask powershell
+```
 
 ---
 

@@ -21,6 +21,7 @@ $ContainerName = "profile-config"
 
 # Files to upload from root directory
 $FilesToUpload = @(
+    "bootstrap.ps1"
     "install.ps1"
     "install-config.json"
     "upload.ps1"
