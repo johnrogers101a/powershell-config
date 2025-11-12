@@ -22,10 +22,9 @@ class WinGetManager : PackageManagerBase {
     WinGetManager() : base("winget") {}
 
     [bool] IsPackageInstalled([PSCustomObject]$package) {
-        # Use winget list to check if package is installed
+        # Use winget list to check if package is installed (fast and reliable)
         try {
-            $result = winget list --exact --id $package.packageId 2>&1
-            # Check exit code - winget returns 0 if package is found
+            $null = winget list --id $package.packageId --exact --accept-source-agreements 2>&1
             return $LASTEXITCODE -eq 0
         }
         catch {

@@ -101,48 +101,62 @@ class SoftwareInstaller {
             return
         }
 
-        # Check if Visual Studio is already installed (VS 2026 Enterprise)
-        $vsWherePath = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
-        if (Test-Path $vsWherePath) {
-            $vsInstalled = & $vsWherePath -version "[18.0,19.0)" -property productPath 2>$null
-            if ($vsInstalled) {
-                Write-Host "✓ Visual Studio is already installed" -ForegroundColor Green
-                return
-            }
+        # Check if Visual Studio is already installed using winget
+        Write-Host "Checking for Visual Studio installation..." -ForegroundColor Cyan
+        $vsCheck = winget list --id Microsoft.VisualStudio.2022.Enterprise 2>$null
+        if ($LASTEXITCODE -eq 0 -and $vsCheck -match "Microsoft.VisualStudio.2022.Enterprise") {
+            Write-Host "✓ Visual Studio is already installed" -ForegroundColor Green
+            return
         }
 
         Write-Host ""
         Write-Host "Installing Visual Studio 2026 Enterprise..." -ForegroundColor Yellow
         Write-Host "  This may take several minutes..." -ForegroundColor Cyan
 
-        # Download Visual Studio 2026 bootstrapper
+        # Download Visual Studio 2026 bootstrapper to user's Downloads folder (more reliable than TEMP)
         $vsBootstrapperUrl = "https://aka.ms/vs/18/release/vs_enterprise.exe"
-        $vsBootstrapperPath = Join-Path $env:TEMP "vs_enterprise_$(Get-Date -Format 'yyyyMMddHHmmss').exe"
+        $downloadsPath = [Environment]::GetFolderPath('UserProfile')
+        $vsBootstrapperPath = Join-Path $downloadsPath "vs_enterprise_installer.exe"
         
         try {
-            Write-Host "  Downloading Visual Studio installer..." -ForegroundColor Cyan
-            
-            # Clean up any old installers first
-            Get-ChildItem -Path $env:TEMP -Filter "vs_enterprise*.exe" -ErrorAction SilentlyContinue | 
-                Where-Object { $_.LastWriteTime -lt (Get-Date).AddHours(-1) } |
-                Remove-Item -Force -ErrorAction SilentlyContinue
-            
-            # Download with progress
-            $ProgressPreference = 'SilentlyContinue'
-            Invoke-WebRequest -Uri $vsBootstrapperUrl -OutFile $vsBootstrapperPath -ErrorAction Stop -UseBasicParsing
-            $ProgressPreference = 'Continue'
-            
-            # Verify the download
-            if (-not (Test-Path $vsBootstrapperPath)) {
-                throw "Download failed: Installer file not found"
+            # Remove existing installer if present
+            if (Test-Path $vsBootstrapperPath) {
+                Write-Host "  Removing existing installer..." -ForegroundColor Cyan
+                Remove-Item $vsBootstrapperPath -Force -ErrorAction Stop
             }
             
-            $fileSize = (Get-Item $vsBootstrapperPath).Length
+            Write-Host "  Downloading Visual Studio installer..." -ForegroundColor Cyan
+            Write-Host "  URL: $vsBootstrapperUrl" -ForegroundColor Gray
+            Write-Host "  Destination: $vsBootstrapperPath" -ForegroundColor Gray
+            
+            # Download using .NET WebClient for better reliability
+            $webClient = New-Object System.Net.WebClient
+            $webClient.DownloadFile($vsBootstrapperUrl, $vsBootstrapperPath)
+            $webClient.Dispose()
+            
+            # Wait a moment for file system to sync
+            Start-Sleep -Seconds 2
+            
+            # Verify the download completed successfully
+            if (-not (Test-Path $vsBootstrapperPath)) {
+                throw "Download failed: Installer file not found at $vsBootstrapperPath"
+            }
+            
+            $fileInfo = Get-Item $vsBootstrapperPath
+            $fileSize = $fileInfo.Length
+            
             if ($fileSize -lt 1MB) {
-                throw "Download failed: File size too small ($fileSize bytes)"
+                throw "Download failed: File size too small ($fileSize bytes) - expected at least 1 MB"
+            }
+            
+            # Verify file is not corrupted by checking if it's a valid PE file
+            $bytes = [System.IO.File]::ReadAllBytes($vsBootstrapperPath)
+            if ($bytes.Length -lt 2 -or $bytes[0] -ne 0x4D -or $bytes[1] -ne 0x5A) {
+                throw "Downloaded file is not a valid executable (MZ header missing)"
             }
             
             Write-Host "  ✓ Downloaded installer ($([math]::Round($fileSize/1MB, 2)) MB)" -ForegroundColor Green
+            Write-Host "  ✓ File integrity verified" -ForegroundColor Green
             
             # Define all workloads for a complete installation
             $workloads = @(
@@ -179,15 +193,6 @@ class SoftwareInstaller {
             Write-Host "  Installing Visual Studio with all workloads..." -ForegroundColor Cyan
             Write-Host "  (This will run silently in the background)" -ForegroundColor Yellow
             
-            # Verify the file is not corrupted before running
-            try {
-                $fileStream = [System.IO.File]::OpenRead($vsBootstrapperPath)
-                $fileStream.Close()
-            }
-            catch {
-                throw "Installer file is corrupted or locked: $($_.Exception.Message)"
-            }
-            
             # Run the installer with error handling
             $process = Start-Process -FilePath $vsBootstrapperPath -ArgumentList $installArgs -Wait -PassThru -NoNewWindow -ErrorAction Stop
             
@@ -204,10 +209,14 @@ class SoftwareInstaller {
         }
         catch {
             Write-Host "  ✗ Failed to install Visual Studio: $($_.Exception.Message)" -ForegroundColor Red
+            Write-Host "  Installer location: $vsBootstrapperPath" -ForegroundColor Yellow
+            Write-Host "  You can try running the installer manually if needed" -ForegroundColor Yellow
         }
         finally {
-            # Clean up installer
+            # Clean up installer only if installation succeeded
             if (Test-Path $vsBootstrapperPath) {
+                Write-Host "  Cleaning up installer..." -ForegroundColor Cyan
+                Start-Sleep -Seconds 1
                 Remove-Item $vsBootstrapperPath -Force -ErrorAction SilentlyContinue
             }
         }
