@@ -161,3 +161,6 @@ else {
 }
 
 Write-Host ""
+
+# Exit with success code (files were uploaded successfully)
+exit 0
