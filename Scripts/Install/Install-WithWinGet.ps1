@@ -47,7 +47,7 @@ if ($InstalledSoftware.ContainsKey($Package.packageId)) {
 
 # Install package
 Write-Host "Installing $($Package.name) via winget..." -ForegroundColor Yellow
-winget install $Package.installArgs 2>&1 | Out-Null
+& winget @($Package.installArgs) 2>&1 | Out-Null
 
 if ($LASTEXITCODE -eq 0) {
     Write-Host "  ✓ $($Package.name) installed successfully" -ForegroundColor Green
