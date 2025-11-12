@@ -22,6 +22,7 @@ $ContainerName = "profile-config"
 # Files to upload from root directory
 $FilesToUpload = @(
     "install.ps1"
+    "install-config.json"
     "upload.ps1"
     "Microsoft.PowerShell_profile.ps1"
     "Microsoft.VSCode_profile.ps1"
@@ -31,6 +32,12 @@ $FilesToUpload = @(
 # Module files to upload (with relative paths)
 $ModuleFiles = @(
     "Modules/ProfileSetup/ProfileSetup.psm1"
+    "Modules/ProfileSetup/PlatformInfo.psm1"
+    "Modules/ProfileSetup/FileManager.psm1"
+    "Modules/ProfileSetup/PackageManager.psm1"
+    "Modules/ProfileSetup/SoftwareInstaller.psm1"
+    "Modules/ProfileSetup/ProfileInstallerClass.psm1"
+    "Modules/ProfileSetup/Installer.psm1"
 )
 
 Write-Host ""
@@ -81,7 +88,7 @@ foreach ($File in $FilesToUpload) {
                 --name $File `
                 --file $FilePath `
                 --overwrite `
-                --auth-mode login `
+                --auth-mode key `
                 --only-show-errors | Out-Null
             
             Write-Host "    ✓ Uploaded successfully" -ForegroundColor Green
@@ -111,7 +118,7 @@ foreach ($ModulePath in $ModuleFiles) {
                 --name $ModulePath `
                 --file $FilePath `
                 --overwrite `
-                --auth-mode login `
+                --auth-mode key `
                 --only-show-errors | Out-Null
             
             Write-Host "    ✓ Uploaded successfully" -ForegroundColor Green
@@ -139,7 +146,7 @@ $publicAccess = az storage container show `
     --name $ContainerName `
     --query "properties.publicAccess" `
     --output tsv `
-    --auth-mode login 2>$null
+    --auth-mode key 2>$null
 
 if ($publicAccess -eq "blob") {
     Write-Host "  ✓ Container has public blob access enabled" -ForegroundColor Green
