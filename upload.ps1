@@ -138,7 +138,8 @@ $publicAccess = az storage container show `
     --account-name $StorageAccount `
     --name $ContainerName `
     --query "properties.publicAccess" `
-    --output tsv 2>$null
+    --output tsv `
+    --auth-mode login 2>$null
 
 if ($publicAccess -eq "blob") {
     Write-Host "  ✓ Container has public blob access enabled" -ForegroundColor Green
