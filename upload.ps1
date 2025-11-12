@@ -81,6 +81,7 @@ foreach ($File in $FilesToUpload) {
                 --name $File `
                 --file $FilePath `
                 --overwrite `
+                --auth-mode login `
                 --only-show-errors | Out-Null
             
             Write-Host "    ✓ Uploaded successfully" -ForegroundColor Green
@@ -110,6 +111,7 @@ foreach ($ModulePath in $ModuleFiles) {
                 --name $ModulePath `
                 --file $FilePath `
                 --overwrite `
+                --auth-mode login `
                 --only-show-errors | Out-Null
             
             Write-Host "    ✓ Uploaded successfully" -ForegroundColor Green
