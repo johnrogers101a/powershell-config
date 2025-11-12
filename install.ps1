@@ -29,8 +29,8 @@ class PlatformInfo {
     [bool]$IsMacOS
 
     PlatformInfo() {
-        $this.IsWindows = (-not (Test-Path variable:IsWindows)) -or $IsWindows
-        $this.IsMacOS = (Test-Path variable:IsMacOS) -and $IsMacOS
+        $this.IsWindows = (-not (Test-Path variable:global:IsWindows)) -or $global:IsWindows
+        $this.IsMacOS = (Test-Path variable:global:IsMacOS) -and $global:IsMacOS
         
         if ($this.IsWindows) {
             $this.OS = "windows"
@@ -82,15 +82,15 @@ class FileManager {
         }
     }
 
-    [PSCustomObject] LoadConfiguration([string]$configPath) {
+    [PSCustomObject] LoadConfiguration([string]$configPath, [string]$configFileName) {
         if (Test-Path $configPath) {
             Write-Host "Loading configuration from local file..." -ForegroundColor Cyan
             return Get-Content $configPath -Raw | ConvertFrom-Json
         }
         else {
             Write-Host "Downloading configuration from Azure..." -ForegroundColor Cyan
-            $tempConfig = Join-Path $env:TEMP $ConfigFileName
-            if ($this.DownloadFile($ConfigFileName, $tempConfig)) {
+            $tempConfig = Join-Path $env:TEMP $configFileName
+            if ($this.DownloadFile($configFileName, $tempConfig)) {
                 return Get-Content $tempConfig -Raw | ConvertFrom-Json
             }
             else {
@@ -259,7 +259,7 @@ class ProfileInstaller {
     [PSCustomObject]$Config
 
     ProfileInstaller([FileManager]$fileManager, [PSCustomObject]$config) {
-        $this.ProfileDir = Split-Path -Parent $PROFILE.CurrentUserAllHosts
+        $this.ProfileDir = Split-Path -Parent $global:PROFILE.CurrentUserAllHosts
         $this.ModulesDir = Join-Path $this.ProfileDir "Modules"
         $this.FileManager = $fileManager
         $this.Config = $config
@@ -306,7 +306,7 @@ class ProfileInstaller {
         Write-Host ""
         Write-Host "Loading profile..." -ForegroundColor Cyan
         try {
-            . $PROFILE.CurrentUserAllHosts
+            . $global:PROFILE.CurrentUserAllHosts
             Write-Host "Profile loaded successfully!" -ForegroundColor Green
         }
         catch {
@@ -324,10 +324,10 @@ class InstallationOrchestrator {
     [SoftwareInstaller]$SoftwareInstaller
     [ProfileInstaller]$ProfileInstaller
 
-    InstallationOrchestrator([string]$azureBaseUrl, [string]$configPath) {
+    InstallationOrchestrator([string]$azureBaseUrl, [string]$configPath, [string]$configFileName) {
         $this.Platform = [PlatformInfo]::new()
         $this.FileManager = [FileManager]::new($azureBaseUrl)
-        $this.Config = $this.FileManager.LoadConfiguration($configPath)
+        $this.Config = $this.FileManager.LoadConfiguration($configPath, $configFileName)
         $this.SoftwareInstaller = [SoftwareInstaller]::new($this.Platform, $this.Config)
         $this.ProfileInstaller = [ProfileInstaller]::new($this.FileManager, $this.Config)
     }
@@ -371,7 +371,7 @@ class InstallationOrchestrator {
 #region Entry Point
 try {
     $configPath = Join-Path $ScriptDir $ConfigFileName
-    $orchestrator = [InstallationOrchestrator]::new($AzureBaseUrl, $configPath)
+    $orchestrator = [InstallationOrchestrator]::new($AzureBaseUrl, $configPath, $ConfigFileName)
     $orchestrator.Run()
 }
 catch {
