@@ -47,13 +47,18 @@ if ($InstalledSoftware.ContainsKey($Package.packageId)) {
 
 # Install package
 Write-Host "Installing $($Package.name) via winget..." -ForegroundColor Yellow
-& winget @($Package.installArgs) 2>&1 | Out-Null
+$output = & winget @($Package.installArgs) 2>&1
+$exitCode = $LASTEXITCODE
 
-if ($LASTEXITCODE -eq 0) {
+if ($exitCode -eq 0) {
     Write-Host "  ✓ $($Package.name) installed successfully" -ForegroundColor Green
     return $true
 }
 else {
-    Write-Host "  ✗ Failed to install $($Package.name)" -ForegroundColor Red
+    Write-Host "  ✗ Failed to install $($Package.name) (Exit code: $exitCode)" -ForegroundColor Red
+    Write-Host "  Command: winget $($Package.installArgs -join ' ')" -ForegroundColor Gray
+    if ($output) {
+        Write-Host "  Output: $($output | Select-Object -First 3 | Out-String)" -ForegroundColor Gray
+    }
     return $false
 }
