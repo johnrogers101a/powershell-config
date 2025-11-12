@@ -110,34 +110,70 @@ try {
         "Microsoft.VisualStudio.Workload.NetCrossPlat"
     )
     
-    # Build install arguments
-    $installArgs = @(
+    # Install base product first, then workloads
+    Write-Host ""
+    Write-Host "  Phase 1: Installing Visual Studio 2026 Enterprise base..." -ForegroundColor Cyan
+    $baseInstallStart = Get-Date
+    
+    $baseInstallArgs = @(
         "--quiet"
         "--norestart"
         "--wait"
         "--nocache"
     )
     
-    foreach ($workload in $workloads) {
-        $installArgs += "--add"
-        $installArgs += $workload
-    }
+    $baseProcess = Start-Process -FilePath $vsBootstrapperPath -ArgumentList $baseInstallArgs -Wait -PassThru -NoNewWindow -ErrorAction Stop
+    $baseInstallEnd = Get-Date
+    $baseInstallDuration = ($baseInstallEnd - $baseInstallStart).TotalSeconds
     
-    Write-Host "  Installing Visual Studio with all workloads..." -ForegroundColor Cyan
-    Write-Host "  (This will run silently in the background)" -ForegroundColor Yellow
-    
-    # Run installer
-    $process = Start-Process -FilePath $vsBootstrapperPath -ArgumentList $installArgs -Wait -PassThru -NoNewWindow -ErrorAction Stop
-    
-    if ($process.ExitCode -eq 0 -or $process.ExitCode -eq 3010) {
-        Write-Host "  ✓ Visual Studio installed successfully" -ForegroundColor Green
-        if ($process.ExitCode -eq 3010) {
-            Write-Host "  Note: A restart may be required to complete the installation" -ForegroundColor Yellow
-        }
+    if ($baseProcess.ExitCode -eq 0 -or $baseProcess.ExitCode -eq 3010) {
+        Write-Host "  ✓ Base installation completed in $([math]::Round($baseInstallDuration, 1)) seconds" -ForegroundColor Green
     }
     else {
-        Write-Host "  ✗ Visual Studio installation failed (Exit code: $($process.ExitCode))" -ForegroundColor Red
-        Write-Host "  Common exit codes: -1 (error), -2147205120 (admin required), 740 (elevation required)" -ForegroundColor Yellow
+        Write-Host "  ✗ Base installation failed (Exit code: $($baseProcess.ExitCode))" -ForegroundColor Red
+        throw "Base installation failed"
+    }
+    
+    # Install workloads one by one with progress reporting
+    Write-Host ""
+    Write-Host "  Phase 2: Installing workloads..." -ForegroundColor Cyan
+    $workloadNumber = 0
+    $totalWorkloads = $workloads.Count
+    
+    foreach ($workload in $workloads) {
+        $workloadNumber++
+        $workloadName = $workload -replace '^Microsoft\.VisualStudio\.Workload\.', ''
+        
+        Write-Host "  [$workloadNumber/$totalWorkloads] Installing $workloadName..." -ForegroundColor Yellow
+        $workloadStart = Get-Date
+        
+        $workloadArgs = @(
+            "modify"
+            "--installPath"
+            "C:\Program Files\Microsoft Visual Studio\2022\Enterprise"
+            "--quiet"
+            "--norestart"
+            "--wait"
+            "--add"
+            $workload
+        )
+        
+        $workloadProcess = Start-Process -FilePath $vsBootstrapperPath -ArgumentList $workloadArgs -Wait -PassThru -NoNewWindow -ErrorAction Stop
+        $workloadEnd = Get-Date
+        $workloadDuration = ($workloadEnd - $workloadStart).TotalSeconds
+        
+        if ($workloadProcess.ExitCode -eq 0 -or $workloadProcess.ExitCode -eq 3010) {
+            Write-Host "    ✓ $workloadName completed in $([math]::Round($workloadDuration, 1)) seconds" -ForegroundColor Green
+        }
+        else {
+            Write-Host "    ✗ $workloadName failed (Exit code: $($workloadProcess.ExitCode))" -ForegroundColor Red
+        }
+    }
+    
+    Write-Host ""
+    Write-Host "  ✓ Visual Studio 2026 Enterprise installation completed" -ForegroundColor Green
+    if ($baseProcess.ExitCode -eq 3010) {
+        Write-Host "  Note: A restart may be required to complete the installation" -ForegroundColor Yellow
     }
 }
 catch {
