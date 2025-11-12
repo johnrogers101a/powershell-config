@@ -101,7 +101,7 @@ class SoftwareInstaller {
             return
         }
 
-        # Check if Visual Studio is already installed
+        # Check if Visual Studio is already installed (VS 2026 Enterprise)
         $vsWherePath = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
         if (Test-Path $vsWherePath) {
             $vsInstalled = & $vsWherePath -version "[18.0,19.0)" -property productPath 2>$null
