@@ -41,11 +41,12 @@ if ($LASTEXITCODE -eq 0 -and $vsCheck -match "Microsoft.VisualStudio.2022.Enterp
 }
 
 Write-Host ""
-Write-Host "Installing Visual Studio 2026 Enterprise..." -ForegroundColor Yellow
+Write-Host "Installing Visual Studio 2022 Enterprise..." -ForegroundColor Yellow
 Write-Host "  This may take several minutes..." -ForegroundColor Cyan
 
-# Download Visual Studio 2026 bootstrapper to Desktop
-$vsBootstrapperUrl = "https://aka.ms/vs/18/release/vs_enterprise.exe"
+# Download Visual Studio 2022 bootstrapper to Desktop
+# Using direct download URL instead of aka.ms redirect
+$vsBootstrapperUrl = "https://download.visualstudio.microsoft.com/download/pr/69e24482-3b48-44d3-af65-51f866a08313/e2ef8c979864c1e4ee1aadea6ee38f5a87a25e8eadb2b6856c77b94ca59a3bc7/vs_Enterprise.exe"
 $desktopPath = [Environment]::GetFolderPath('Desktop')
 $vsBootstrapperPath = Join-Path $desktopPath "vs_enterprise_installer.exe"
 
@@ -106,7 +107,20 @@ try {
     
     # Verify file is a valid PE executable
     $bytes = [System.IO.File]::ReadAllBytes($vsBootstrapperPath)
-    if ($bytes.Length -lt 2 -or $bytes[0] -ne 0x4D -or $bytes[1] -ne 0x5A) {
+    
+    # Check for MZ header (PE executable)
+    $isValidExe = $bytes.Length -ge 2 -and $bytes[0] -eq 0x4D -and $bytes[1] -eq 0x5A
+    
+    if (-not $isValidExe) {
+        # Check what we actually got
+        $header = [System.Text.Encoding]::ASCII.GetString($bytes[0..[Math]::Min(100, $bytes.Length - 1)])
+        Write-Host "  File header (first 100 bytes): $header" -ForegroundColor Gray
+        
+        # If it's HTML, show a snippet
+        if ($header -match '<html|<!DOCTYPE') {
+            Write-Host "  Downloaded file appears to be HTML (likely an error page)" -ForegroundColor Yellow
+        }
+        
         throw "Downloaded file is not a valid executable (MZ header missing)"
     }
     
