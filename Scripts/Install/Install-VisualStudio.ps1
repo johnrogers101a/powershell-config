@@ -44,9 +44,12 @@ Write-Host ""
 Write-Host "Installing Visual Studio 2026 Enterprise..." -ForegroundColor Yellow
 Write-Host "  This may take several minutes..." -ForegroundColor Cyan
 
-# Download Visual Studio 2026 (v18) bootstrapper to Desktop
-# Using aka.ms redirect which should point to latest version
-$vsBootstrapperUrl = "https://aka.ms/vs/18/release/vs_enterprise.exe"
+# Download Visual Studio 2026 Enterprise bootstrapper from Azure Storage
+# Pre-uploaded installer to avoid Microsoft's problematic aka.ms redirects
+$azureBaseUrl = "https://stprofilewus3.blob.core.windows.net/profile-config"
+$vsBootstrapperUrl = "$azureBaseUrl/vs_enterprise.exe"
+$cacheBuster = "?v=$(Get-Date -Format 'yyyyMMddHHmmss')"
+$vsBootstrapperUrl += $cacheBuster
 $desktopPath = [Environment]::GetFolderPath('Desktop')
 $vsBootstrapperPath = Join-Path $desktopPath "vs_enterprise_installer.exe"
 
@@ -57,22 +60,24 @@ try {
         Remove-Item $vsBootstrapperPath -Force -ErrorAction Stop
     }
     
-    Write-Host "  Downloading Visual Studio 2026 Enterprise installer..." -ForegroundColor Cyan
+    Write-Host "  Downloading Visual Studio 2026 Enterprise installer from Azure..." -ForegroundColor Cyan
     
     try {
-        # Use Invoke-WebRequest which handles redirects properly
-        # aka.ms URLs redirect to the actual download location
+        # Download from Azure Blob Storage (no redirect issues)
         Invoke-WebRequest -Uri $vsBootstrapperUrl `
             -OutFile $vsBootstrapperPath `
-            -MaximumRedirection 10 `
             -UserAgent "PowerShell" `
             -ErrorAction Stop
         
-        # Validate the download by checking file size and MZ header
+        # Validate the download
+        if (-not (Test-Path $vsBootstrapperPath)) {
+            throw "Download failed: Installer file not found at $vsBootstrapperPath"
+        }
+        
         $fileInfo = Get-Item $vsBootstrapperPath
         $fileSize = $fileInfo.Length
         
-        Write-Host "  Downloaded $fileSize bytes" -ForegroundColor Cyan
+        Write-Host "  Downloaded $([math]::Round($fileSize/1MB, 2)) MB" -ForegroundColor Cyan
         
         # Check if file is a valid executable (MZ header)
         $bytes = [System.IO.File]::ReadAllBytes($vsBootstrapperPath)
@@ -80,96 +85,12 @@ try {
             throw "Downloaded file is not a valid executable (missing MZ header)"
         }
         
-        Write-Host "  Installer downloaded successfully" -ForegroundColor Green
+        Write-Host "  ✓ Installer downloaded and verified successfully" -ForegroundColor Green
     }
     catch {
         Write-Host "  Download failed: $_" -ForegroundColor Red
-        throw "Failed to download Visual Studio installer"
+        throw "Failed to download Visual Studio installer from Azure Storage"
     }
-    
-    # Use System.Net.WebClient for most reliable download with automatic redirect handling
-    try {
-        $ProgressPreference = 'SilentlyContinue'
-        $webClient = New-Object System.Net.WebClient
-        $webClient.Headers.Add("User-Agent", "PowerShell")
-        $webClient.DownloadFile($vsBootstrapperUrl, $vsBootstrapperPath)
-        $webClient.Dispose()
-        Write-Host "  ✓ Downloaded using WebClient" -ForegroundColor Green
-    }
-    catch {
-        Write-Host "  Trying Invoke-WebRequest as fallback..." -ForegroundColor Yellow
-        Invoke-WebRequest -Uri $vsBootstrapperUrl -OutFile $vsBootstrapperPath -UseBasicParsing -MaximumRedirection 10 -ErrorAction Stop
-        Write-Host "  ✓ Downloaded using Invoke-WebRequest" -ForegroundColor Green
-    }
-    
-    # Verify download
-    if (-not (Test-Path $vsBootstrapperPath)) {
-        throw "Download failed: Installer file not found at $vsBootstrapperPath"
-    }
-    
-    $fileInfo = Get-Item $vsBootstrapperPath
-    $fileSize = $fileInfo.Length
-    
-    if ($fileSize -lt 100KB) {
-        # File is too small, likely an HTML redirect or error page
-        Write-Host "  Download appears incomplete ($fileSize bytes)" -ForegroundColor Yellow
-        
-        # Read the content to see what we got
-        $content = Get-Content $vsBootstrapperPath -Raw -Encoding UTF8
-        if ($content -match '<html|<!DOCTYPE') {
-            Write-Host "  Downloaded file is HTML (redirect page), not the installer" -ForegroundColor Yellow
-            
-            # Try to extract the actual download URL from the redirect page
-            if ($content -match 'href="([^"]+vs_[eE]nterprise\.exe[^"]*)"') {
-                $actualUrl = $matches[1]
-                Write-Host "  Found redirect URL: $actualUrl" -ForegroundColor Cyan
-                Remove-Item $vsBootstrapperPath -Force -ErrorAction SilentlyContinue
-                
-                $webClient = New-Object System.Net.WebClient
-                $webClient.Headers.Add("User-Agent", "PowerShell")
-                $webClient.DownloadFile($actualUrl, $vsBootstrapperPath)
-                $webClient.Dispose()
-                
-                # Re-check file size
-                if (Test-Path $vsBootstrapperPath) {
-                    $fileInfo = Get-Item $vsBootstrapperPath
-                    $fileSize = $fileInfo.Length
-                }
-            }
-        }
-        
-        if ($fileSize -lt 100KB) {
-            # Save the HTML content for debugging
-            $debugPath = Join-Path $desktopPath "vs_download_debug.html"
-            Copy-Item $vsBootstrapperPath $debugPath -Force
-            Write-Host "  Debug: HTML content saved to $debugPath" -ForegroundColor Gray
-            throw "Download failed: File size too small ($fileSize bytes). Visual Studio installer requires manual download from https://visualstudio.microsoft.com/downloads/"
-        }
-        
-        Write-Host "  ✓ Downloaded successfully after redirect" -ForegroundColor Green
-    }
-    
-    # Verify file is a valid PE executable
-    $bytes = [System.IO.File]::ReadAllBytes($vsBootstrapperPath)
-    
-    # Check for MZ header (PE executable)
-    $isValidExe = $bytes.Length -ge 2 -and $bytes[0] -eq 0x4D -and $bytes[1] -eq 0x5A
-    
-    if (-not $isValidExe) {
-        # Check what we actually got
-        $header = [System.Text.Encoding]::ASCII.GetString($bytes[0..[Math]::Min(100, $bytes.Length - 1)])
-        Write-Host "  File header (first 100 bytes): $header" -ForegroundColor Gray
-        
-        # If it's HTML, show a snippet
-        if ($header -match '<html|<!DOCTYPE') {
-            Write-Host "  Downloaded file appears to be HTML (likely an error page)" -ForegroundColor Yellow
-        }
-        
-        throw "Downloaded file is not a valid executable (MZ header missing)"
-    }
-    
-    Write-Host "  ✓ File size: $([math]::Round($fileSize/1MB, 2)) MB" -ForegroundColor Green
-    Write-Host "  ✓ File integrity verified (valid PE executable)" -ForegroundColor Green
     
     # Define all workloads
     $workloads = @(
