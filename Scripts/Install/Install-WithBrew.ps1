@@ -4,16 +4,19 @@
     Installs a package using Homebrew package manager.
 
 .DESCRIPTION
-    Checks if package is already installed via command availability (idempotent).
+    Checks if package is already installed using pre-fetched list (idempotent).
     Installs package if not present. Updates environment variables for current session.
     Returns success status.
 
 .PARAMETER Package
-    Package configuration object with properties: name, installArgs, command
+    Package configuration object with properties: name, installArgs, command, packageId
+
+.PARAMETER InstalledSoftware
+    Hashtable of already installed software (packageId -> $true)
 
 .EXAMPLE
-    $package = @{ name = "Git"; installArgs = @("install", "git"); command = "git" }
-    $success = & "$PSScriptRoot/Install-WithBrew.ps1" -Package $package
+    $package = @{ name = "Git"; installArgs = @("install", "git"); command = "git"; packageId = "git" }
+    $success = & "$PSScriptRoot/Install-WithBrew.ps1" -Package $package -InstalledSoftware $installed
 
 .OUTPUTS
     Boolean indicating installation success
@@ -22,7 +25,10 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory)]
-    [PSCustomObject]$Package
+    [PSCustomObject]$Package,
+    
+    [Parameter(Mandatory)]
+    [hashtable]$InstalledSoftware
 )
 
 $ErrorActionPreference = 'Stop'
@@ -34,8 +40,8 @@ if (-not (Get-Command brew -ErrorAction SilentlyContinue)) {
     return $false
 }
 
-# Check if package is already installed (idempotency)
-if (Get-Command $Package.command -ErrorAction SilentlyContinue) {
+# Check if package is already installed using pre-fetched list (idempotency)
+if ($InstalledSoftware.ContainsKey($Package.packageId)) {
     Write-Host "✓ $($Package.name) is already installed" -ForegroundColor Green
     return $true
 }

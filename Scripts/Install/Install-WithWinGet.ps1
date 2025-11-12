@@ -4,15 +4,18 @@
     Installs a package using Windows Package Manager (winget).
 
 .DESCRIPTION
-    Checks if package is already installed using winget list (idempotent).
+    Checks if package is already installed using pre-fetched list (idempotent).
     Installs package if not present. Returns success status.
 
 .PARAMETER Package
     Package configuration object with properties: name, packageId, installArgs, command
 
+.PARAMETER InstalledSoftware
+    Hashtable of already installed software (packageId -> $true)
+
 .EXAMPLE
     $package = @{ name = "Git"; packageId = "Git.Git"; installArgs = @("-e", "--id", "Git.Git"); command = "git" }
-    $success = & "$PSScriptRoot/Install-WithWinGet.ps1" -Package $package
+    $success = & "$PSScriptRoot/Install-WithWinGet.ps1" -Package $package -InstalledSoftware $installed
 
 .OUTPUTS
     Boolean indicating installation success
@@ -21,7 +24,10 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory)]
-    [PSCustomObject]$Package
+    [PSCustomObject]$Package,
+    
+    [Parameter(Mandatory)]
+    [hashtable]$InstalledSoftware
 )
 
 $ErrorActionPreference = 'Stop'
@@ -33,20 +39,10 @@ if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
     return $false
 }
 
-# Check if package is already installed (idempotency)
-try {
-    $null = winget list --id $Package.packageId --exact --accept-source-agreements 2>&1
-    if ($LASTEXITCODE -eq 0) {
-        Write-Host "✓ $($Package.name) is already installed" -ForegroundColor Green
-        return $true
-    }
-}
-catch {
-    # If winget check fails, try command check as fallback
-    if (Get-Command $Package.command -ErrorAction SilentlyContinue) {
-        Write-Host "✓ $($Package.name) is already installed" -ForegroundColor Green
-        return $true
-    }
+# Check if package is already installed using pre-fetched list (idempotency)
+if ($InstalledSoftware.ContainsKey($Package.packageId)) {
+    Write-Host "✓ $($Package.name) is already installed" -ForegroundColor Green
+    return $true
 }
 
 # Install package
