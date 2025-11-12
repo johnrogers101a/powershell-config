@@ -1,6 +1,6 @@
 # PowerShell Profile Configuration
 
-A cross-platform PowerShell profile configuration with custom modules and Oh My Posh theming for Windows and macOS.
+A cross-platform PowerShell profile configuration with custom modules and Oh My Posh theming for Windows and macOS. 🚀
 
 ## Features
 
