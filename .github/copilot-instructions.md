@@ -19,8 +19,8 @@ This is a **PowerShell profile configuration system for Windows and macOS** that
 2. **Configuration Loading**: `FileManager` loads `install-config.json` (local or from Azure)
 3. **Software Installation**: `SoftwareInstaller` installs PowerShell, Git, and Oh My Posh via platform-specific package managers
 4. **Font Installation**: Installs Meslo Nerd Font via oh-my-posh CLI
-5. **Profile Installation**: `ProfileInstaller` downloads and installs profile files
-6. **Backup strategy**: Existing files backed up with timestamp suffix (e.g., `filename.backup.20231115_143022`)
+5. **Profile Installation**: `ProfileInstaller` downloads and installs profile files (overwrites existing files)
+6. **Module reloading**: Forces removal and reimport of modules to ensure latest code
 7. **Target directory**: `$PROFILE.CurrentUserAllHosts` parent directory (Windows: `~/Documents/PowerShell/`, macOS: `~/.config/powershell/`)
 8. **Auto-reload**: Attempts to source the profile immediately after installation
 
@@ -45,7 +45,7 @@ Initialize-PowerShellProfile
 
 In `Modules/ProfileSetup/ProfileSetup.psm1`:
 
-- `Install-ModuleIfMissing`: Installs and imports PowerShell modules on-demand
+- `Install-ModuleIfMissing`: Forces removal and reinstall of PowerShell modules to ensure latest versions
 - `Get-GitBranches`: Retrieves unique local and remote git branches (strips `origin/` prefix)
 - `Test-GitSwitchCommand`: Pattern matches git switch/checkout commands for tab completion
 - `Set-DefaultWorkingDirectory`: Navigates to `~/code` if in home directory
@@ -63,7 +63,7 @@ In `Modules/ProfileSetup/ProfileSetup.psm1`:
 The installer uses PowerShell classes following SOLID principles:
 
 - **`PlatformInfo`**: Detects OS (Windows/macOS only), throws error for unsupported platforms
-- **`FileManager`**: Handles Azure downloads, local file operations, config loading, backups
+- **`FileManager`**: Handles Azure downloads, local file operations, config loading
 - **`PackageManagerBase`**: Abstract base class for package manager implementations
   - **`WinGetManager`**: Windows package management via winget
   - **`BrewManager`**: macOS package management via Homebrew
@@ -122,15 +122,14 @@ These commands:
 - **Cloud install test**: `pwsh -NoProfile -ExecutionPolicy Bypass -Command "iex (irm https://stprofilewus3.blob.core.windows.net/profile-config/install.ps1)"`
 - **Profile reload**: `. $PROFILE.CurrentUserAllHosts` sources the current user profile
 - **Module testing**: `Import-Module ./Modules/ProfileSetup -Force` reloads the module
-- **Backup recovery**: Timestamped backups in profile directory can be restored by removing `.backup.YYYYMMDD_HHMMSS` suffix
 
 ## Conventions
 
 - **Error handling**: Use `-ErrorAction SilentlyContinue` for existence checks, never suppress errors on actual operations
 - **Output coloring**: Green for success, Yellow for warnings, Red for errors, Cyan for informational
-- **Backup naming**: `{filename}.backup.{timestamp}` where timestamp is `yyyyMMdd_HHmmss`
 - **Module exports**: Explicitly export functions with `Export-ModuleMember -Function @(...)`
 - **Parameter validation**: Use `[Parameter(Mandatory)]` for required parameters, provide defaults for optional ones
+- **Module loading**: Always force reload modules with `Remove-Module` + `Import-Module -Force` to ensure latest code
 
 ## Common Development Tasks
 

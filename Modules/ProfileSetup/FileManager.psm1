@@ -16,21 +16,14 @@ class FileManager {
                 New-Item -ItemType Directory -Path $parentDir -Force | Out-Null
             }
             
-            Invoke-WebRequest -Uri $url -OutFile $destinationPath -ErrorAction Stop
+            # Force download with no cache
+            Invoke-WebRequest -Uri $url -OutFile $destinationPath -ErrorAction Stop -UseBasicParsing
             Write-Host "    Downloaded successfully" -ForegroundColor Green
             return $true
         }
         catch {
             Write-Host "    Failed to download: $($_.Exception.Message)" -ForegroundColor Red
             return $false
-        }
-    }
-
-    [void] BackupFile([string]$filePath) {
-        if (Test-Path $filePath) {
-            $backupPath = "$filePath.backup.$(Get-Date -Format 'yyyyMMdd_HHmmss')"
-            Write-Host "  Backing up existing $(Split-Path -Leaf $filePath)..." -ForegroundColor Yellow
-            Copy-Item -Path $filePath -Destination $backupPath -Force
         }
     }
 

@@ -2,7 +2,7 @@
 function Install-ModuleIfMissing {
     <#
     .SYNOPSIS
-    Installs and imports a PowerShell module if it's not already available
+    Installs and imports a PowerShell module, forcing a reload if already loaded
     
     .PARAMETER ModuleName
     The name of the module to install
@@ -12,10 +12,18 @@ function Install-ModuleIfMissing {
         [string]$ModuleName
     )
     
+    # Remove module if already loaded to ensure fresh import
+    if (Get-Module -Name $ModuleName) {
+        Remove-Module -Name $ModuleName -Force
+    }
+    
+    # Install if not available
     if (-not (Get-Module -ListAvailable -Name $ModuleName)) {
         Install-Module $ModuleName -Scope CurrentUser -Force
     }
-    Import-Module $ModuleName
+    
+    # Import with force to get latest version
+    Import-Module $ModuleName -Force
 }
 #endregion
 

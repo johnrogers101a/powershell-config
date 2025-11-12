@@ -26,11 +26,15 @@ class ProfileInstaller {
             New-Item -ItemType Directory -Path $this.ProfileDir -Force | Out-Null
         }
 
-        # Install profile files
+        # Install profile files (overwrite existing)
         Write-Host "Installing profile files..." -ForegroundColor Cyan
         foreach ($file in $this.Config.profileFiles) {
             $destPath = Join-Path $this.ProfileDir $file
-            $this.FileManager.BackupFile($destPath)
+            
+            # Remove existing file if present
+            if (Test-Path $destPath) {
+                Remove-Item $destPath -Force -ErrorAction SilentlyContinue
+            }
             
             $success = $this.FileManager.DownloadFile($file, $destPath)
             if (-not $success) {
