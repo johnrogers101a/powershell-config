@@ -19,7 +19,7 @@ param()
 #region Configuration
 $AzureBaseUrl = "https://stprofilewus3.blob.core.windows.net/profile-config"
 $ConfigFileName = "install-config.json"
-$ScriptDir = $PSScriptRoot
+$ScriptDir = if ($PSScriptRoot) { $PSScriptRoot } else { $PWD.Path }
 #endregion
 
 #region Platform Detection
