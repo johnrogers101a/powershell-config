@@ -1,0 +1,67 @@
+{
+  "profileFiles": [
+    "Microsoft.PowerShell_profile.ps1",
+    "Microsoft.VSCode_profile.ps1",
+    "omp.json"
+  ],
+  "moduleFiles": [
+    "Modules/ProfileSetup/ProfileSetup.psm1"
+  ],
+  "software": {
+    "windows": [
+      {
+        "name": "PowerShell",
+        "command": "pwsh",
+        "packageManager": "winget",
+        "packageId": "Microsoft.PowerShell",
+        "installArgs": ["-e", "--id", "Microsoft.PowerShell", "--accept-package-agreements", "--accept-source-agreements"]
+      },
+      {
+        "name": "Git",
+        "command": "git",
+        "packageManager": "winget",
+        "packageId": "Git.Git",
+        "installArgs": ["-e", "--id", "Git.Git", "--accept-package-agreements", "--accept-source-agreements"]
+      },
+      {
+        "name": "Oh My Posh",
+        "command": "oh-my-posh",
+        "packageManager": "winget",
+        "packageId": "JanDeDobbeleer.OhMyPosh",
+        "installArgs": ["-e", "--id", "JanDeDobbeleer.OhMyPosh", "--accept-package-agreements", "--accept-source-agreements"]
+      }
+    ],
+    "macos": [
+      {
+        "name": "PowerShell",
+        "command": "pwsh",
+        "packageManager": "brew",
+        "packageId": "powershell",
+        "installArgs": ["install", "--cask", "powershell"],
+        "isCask": true
+      },
+      {
+        "name": "Git",
+        "command": "git",
+        "packageManager": "brew",
+        "packageId": "git",
+        "installArgs": ["install", "git"],
+        "isCask": false
+      },
+      {
+        "name": "Oh My Posh",
+        "command": "oh-my-posh",
+        "packageManager": "brew",
+        "packageId": "oh-my-posh",
+        "installArgs": ["install", "oh-my-posh"],
+        "isCask": false
+      }
+    ]
+  },
+  "fonts": [
+    {
+      "name": "Meslo Nerd Font",
+      "installCommand": "oh-my-posh font install meslo"
+    }
+  ]
+}

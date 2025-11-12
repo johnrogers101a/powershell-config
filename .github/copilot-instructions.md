@@ -2,8 +2,10 @@
 
 ## Project Overview
 
-This is a **cross-platform PowerShell profile configuration system** that installs custom profiles, modules, and Oh My Posh theming. Key architecture:
+This is a **PowerShell profile configuration system for Windows and macOS** that installs custom profiles, modules, Oh My Posh theming, and required software. Key architecture:
 
+- **SOLID Design**: Object-oriented with clear separation of concerns
+- **JSON Configuration**: Modular `install-config.json` drives software installation
 - **Two deployment modes**: Cloud install (downloads from Azure Blob Storage) and local install
 - **Profile files**: `Microsoft.PowerShell_profile.ps1` (main console) and `Microsoft.VSCode_profile.ps1` (VS Code terminal)
 - **Custom module**: `Modules/ProfileSetup/ProfileSetup.psm1` provides initialization functions
@@ -11,15 +13,18 @@ This is a **cross-platform PowerShell profile configuration system** that instal
 
 ## Critical Installation Flow
 
-`install.ps1` orchestrates the entire installation:
+`install.ps1` orchestrates the entire installation using class-based architecture:
 
-1. **PowerShell detection/installation**: Auto-installs PowerShell via platform-specific package managers (Homebrew/macOS, winget/Windows, apt or dnf/Linux)
-2. **Cloud-first design**: Always downloads from `https://stprofilewus3.blob.core.windows.net/profile-config/` via `Get-FileFromAzure`
-3. **Backup strategy**: Existing files backed up with timestamp suffix (e.g., `filename.backup.20231115_143022`)
-4. **Target directory**: `$PROFILE.CurrentUserAllHosts` parent directory (Windows: `~/Documents/PowerShell/`, macOS/Linux: `~/.config/powershell/`)
-5. **Auto-reload**: Attempts to source the profile immediately after installation
+1. **Platform Detection**: `PlatformInfo` class detects Windows or macOS (Linux not supported)
+2. **Configuration Loading**: `FileManager` loads `install-config.json` (local or from Azure)
+3. **Software Installation**: `SoftwareInstaller` installs PowerShell, Git, and Oh My Posh via platform-specific package managers
+4. **Font Installation**: Installs Meslo Nerd Font via oh-my-posh CLI
+5. **Profile Installation**: `ProfileInstaller` downloads and installs profile files
+6. **Backup strategy**: Existing files backed up with timestamp suffix (e.g., `filename.backup.20231115_143022`)
+7. **Target directory**: `$PROFILE.CurrentUserAllHosts` parent directory (Windows: `~/Documents/PowerShell/`, macOS: `~/.config/powershell/`)
+8. **Auto-reload**: Attempts to source the profile immediately after installation
 
-**Note**: The script is designed for cloud installation only. When executed via one-liner (iex/irm), all files are downloaded directly from Azure Blob Storage.
+**Note**: The script is designed for cloud installation. When executed via one-liner (iex/irm), all files are downloaded directly from Azure Blob Storage.
 
 ## Profile Architecture
 
@@ -53,27 +58,53 @@ In `Modules/ProfileSetup/ProfileSetup.psm1`:
    - Staging changes: green dot + count
    - Working changes: orange dot + count
 
+## Class Architecture
+
+The installer uses PowerShell classes following SOLID principles:
+
+- **`PlatformInfo`**: Detects OS (Windows/macOS only), throws error for unsupported platforms
+- **`FileManager`**: Handles Azure downloads, local file operations, config loading, backups
+- **`PackageManagerBase`**: Abstract base class for package manager implementations
+  - **`WinGetManager`**: Windows package management via winget
+  - **`BrewManager`**: macOS package management via Homebrew
+- **`SoftwareInstaller`**: Orchestrates software installation, checks for existing installs (idempotency)
+- **`ProfileInstaller`**: Installs profile files and modules
+- **`InstallationOrchestrator`**: Top-level coordinator, owns all dependencies
+
+## Configuration File Structure
+
+`install-config.json` defines all installation behavior:
+
+```json
+{
+  "software": {
+    "windows": [{ "name", "command", "packageManager", "packageId", "installArgs" }],
+    "macos": [{ "name", "command", "packageManager", "packageId", "installArgs", "isCask" }]
+  },
+  "profileFiles": ["file1.ps1", "file2.ps1"],
+  "moduleFiles": ["Modules/Module1/Module1.psm1"],
+  "fonts": [{ "name", "installCommand" }]
+}
+```
+
 ## Platform-Specific Patterns
 
-**Detection idiom**: Use `$IsMacOS`, `$IsWindows`, `$IsLinux` built-in variables
+**Detection idiom**: Use `$IsMacOS` and `$IsWindows` built-in variables in `PlatformInfo` class
 
 **Package managers**:
-- macOS: `brew install --cask powershell` (handles both Homebrew paths: `/opt/homebrew/bin` and `/usr/local/bin`)
-- Windows: `winget install -e --id Microsoft.PowerShell`
-- Linux: Parses `/etc/os-release` to determine distro (Ubuntu/Debian use `apt-get`, Fedora/RHEL use `dnf`)
+- **macOS**: `brew install --cask powershell` (handles both Homebrew paths: `/opt/homebrew/bin` and `/usr/local/bin`)
+- **Windows**: `winget install -e --id Microsoft.PowerShell --accept-package-agreements --accept-source-agreements`
 
 **Path handling**: Always use `Join-Path` for cross-platform compatibility, never string concatenation
 
 ## One-Line Installation Commands
-
-The README provides platform-specific one-liners that download and execute the installer directly from Azure Blob Storage:
 
 **Windows (PowerShell):**
 ```powershell
 Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; iex ((New-Object System.Net.WebClient).DownloadString('https://stprofilewus3.blob.core.windows.net/profile-config/install.ps1'))
 ```
 
-**macOS/Linux (Terminal):**
+**macOS (Terminal):**
 ```bash
 pwsh -NoProfile -ExecutionPolicy Bypass -Command "iex (irm https://stprofilewus3.blob.core.windows.net/profile-config/install.ps1)"
 ```
@@ -81,10 +112,10 @@ pwsh -NoProfile -ExecutionPolicy Bypass -Command "iex (irm https://stprofilewus3
 These commands:
 1. Set appropriate security settings for script execution
 2. Download the installation script from Azure Blob Storage
-3. Execute the script which handles PowerShell installation if needed
+3. Execute the script which handles software and profile installation
 4. Configure the profile with all modules and themes
 
-**Requirements**: Azure Blob Storage container must have anonymous read access enabled for public installation (similar to Chocolatey's public CDN).
+**Requirements**: Azure Blob Storage container must have anonymous read access enabled for public installation.
 
 ## Testing and Debugging
 
@@ -107,6 +138,4 @@ These commands:
 
 **Modifying theme**: Edit `omp.json` segments (path, git, text) - see Oh My Posh schema at https://ohmyposh.dev/docs/configuration/overview
 
-**Adding Azure files**: Upload new files to Azure Blob Storage, then update `$FilesToDownload` or `$ModuleFiles` arrays in `install.ps1`
-
-**Supporting new Linux distros**: Add distro ID pattern to the `elseif` chain in `install.ps1` (around line 75)
+**Adding Azure files**: Upload new files to Azure Blob Storage, then update `install-config.json` configuration

@@ -1,6 +1,16 @@
 # PowerShell Profile Configuration
 
-A cross-platform PowerShell profile configuration with custom modules and Oh My Posh theming.
+A cross-platform PowerShell profile configuration with custom modules and Oh My Posh theming for Windows and macOS.
+
+## Features
+
+- 🚀 **Automated Installation** - One-line install for Windows and macOS
+- 📦 **Software Management** - Automatically installs PowerShell, Git, and Oh My Posh
+- 🎨 **Oh My Posh Theming** - Beautiful terminal prompt with git integration
+- 🔤 **Nerd Fonts** - Automatic Meslo Nerd Font installation
+- ⚙️ **Modular Configuration** - JSON-driven installation config
+- 💾 **Safe Backups** - Existing files are timestamped and backed up
+- 🔄 **Idempotent** - Run multiple times safely
 
 ## Quick Installation
 
@@ -12,12 +22,12 @@ A cross-platform PowerShell profile configuration with custom modules and Oh My 
 
 #### Windows (PowerShell)
 ```powershell
-Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; iex ((New-Object System.Net.WebClient).DownloadString('https://stprofilewus3.blob.core.windows.net/profile-config/install.ps1?v=' + (Get-Date -Format 'yyyyMMddHHmmss')))
+Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; iex ((New-Object System.Net.WebClient).DownloadString('https://stprofilewus3.blob.core.windows.net/profile-config/install.ps1'))
 ```
 
-#### macOS/Linux (Terminal)
+#### macOS (Terminal)
 ```bash
-pwsh -NoProfile -ExecutionPolicy Bypass -Command "iex (irm 'https://stprofilewus3.blob.core.windows.net/profile-config/install.ps1?v='(Get-Date -Format yyyyMMddHHmmss))"
+pwsh -NoProfile -ExecutionPolicy Bypass -Command "iex (irm 'https://stprofilewus3.blob.core.windows.net/profile-config/install.ps1')"
 ```
 
 **Don't have PowerShell installed?** The installer will detect this and install it automatically for your platform!
@@ -43,22 +53,20 @@ pwsh -NoProfile -ExecutionPolicy Bypass -Command "if (!(Get-Command pwsh -ErrorA
 pwsh -NoProfile -ExecutionPolicy Bypass -Command "if (!(Get-Command pwsh -ErrorAction SilentlyContinue)) { winget install -e --id Microsoft.PowerShell --accept-package-agreements --accept-source-agreements }; Set-Location '$PWD'; & '.\install.ps1'"
 ```
 
-#### Linux (Ubuntu/Debian)
-```bash
-command -v pwsh >/dev/null 2>&1 || (sudo apt-get update && sudo apt-get install -y wget apt-transport-https software-properties-common && wget -q "https://packages.microsoft.com/config/ubuntu/$(lsb_release -rs)/packages-microsoft-prod.deb" && sudo dpkg -i packages-microsoft-prod.deb && rm packages-microsoft-prod.deb && sudo apt-get update && sudo apt-get install -y powershell); pwsh -NoProfile -ExecutionPolicy Bypass -Command "Set-Location '$(pwd)'; & './install.ps1'"
-```
-
-#### Linux (Fedora/RHEL/CentOS)
-```bash
-command -v pwsh >/dev/null 2>&1 || (sudo dnf install -y https://packages.microsoft.com/config/rhel/8/packages-microsoft-prod.rpm && sudo dnf install -y powershell); pwsh -NoProfile -ExecutionPolicy Bypass -Command "Set-Location '$(pwd)'; & './install.ps1'"
-```
-
 ## What Gets Installed
 
+### Software (automatically installed if not present)
+- **PowerShell** - Latest version via winget (Windows) or Homebrew (macOS)
+- **Git** - Version control system
+- **Oh My Posh** - Terminal prompt theming engine
+- **Meslo Nerd Font** - Required for prompt icons and symbols
+
+### Configuration Files
 - `Microsoft.PowerShell_profile.ps1` - Main PowerShell profile
 - `Microsoft.VSCode_profile.ps1` - VS Code integrated terminal profile
 - `omp.json` - Oh My Posh theme configuration
 - `Modules/ProfileSetup/` - Custom PowerShell module
+- `install-config.json` - Modular installation configuration
 
 ## Manual Installation
 
@@ -70,22 +78,34 @@ If you already have PowerShell installed, simply run:
 
 ## What It Does
 
-The installation script:
-1. Checks if PowerShell is installed (and installs it if needed)
-2. Copies profile files to your PowerShell profile directory
-3. Backs up any existing profile files with timestamps
-4. Creates necessary directories if they don't exist
-5. Installs custom modules
-6. Automatically loads the new profile
+The installation script follows SOLID principles and provides:
 
-That's it! Everything is configured and ready to use.
+1. **Software Installation** - Installs PowerShell, Git, and Oh My Posh if not present
+2. **Font Installation** - Installs Meslo Nerd Font via Oh My Posh
+3. **Profile Configuration** - Copies profile files to your PowerShell directory
+4. **Safe Backups** - Backs up existing files with timestamps (e.g., `file.backup.20231115_143022`)
+5. **Module Setup** - Installs custom PowerShell modules
+6. **Idempotent** - Can be run multiple times safely (skips already-installed software)
+7. **Automatic Loading** - Loads the new profile immediately
+
+## Architecture
+
+The installer uses a modular, object-oriented design following SOLID principles:
+
+- **Single Responsibility** - Each class handles one concern (Platform detection, File operations, Package management, etc.)
+- **Open/Closed** - Easy to extend with new package managers or platforms
+- **Liskov Substitution** - Package managers are interchangeable via base class
+- **Dependency Inversion** - High-level orchestrator depends on abstractions
+- **DRY** - Configuration externalized to JSON, no code duplication
+- **YAGNI** - Only implements what's needed for Windows and macOS
+- **Idempotency** - Checks before installing, safe to run repeatedly
 
 ## File Locations
 
 After installation, files will be located at:
 
 - **Windows**: `$HOME\Documents\PowerShell\`
-- **macOS/Linux**: `~/.config/powershell/`
+- **macOS**: `~/.config/powershell/`
 
 ## Uploading Updates
 
@@ -126,16 +146,53 @@ To remove the configuration, delete the installed files from your PowerShell pro
 
 ## Requirements
 
-- PowerShell 7.0 or later (automatically installed by the one-line commands)
-- Oh My Posh (if using the theme - install separately)
+### For Cloud Installation
+- Internet connection to Azure Blob Storage
+- **Windows**: PowerShell or Command Prompt (winget will be used)
+- **macOS**: Terminal with bash/zsh (Homebrew will be used)
+
+### For Local Installation
+- PowerShell 7.0+ (script can install it if missing)
+- **Windows**: winget package manager (included in Windows 11, Windows 10 requires App Installer)
+- **macOS**: Homebrew package manager
+
+## Configuration
+
+The `install-config.json` file drives the entire installation process:
+
+```json
+{
+  "software": {
+    "windows": [...],  // Software to install on Windows
+    "macos": [...]     // Software to install on macOS
+  },
+  "profileFiles": [...],  // Profile files to install
+  "moduleFiles": [...],   // Modules to install
+  "fonts": [...]          // Fonts to install via oh-my-posh
+}
+```
+
+To add new software or change installation behavior, simply edit the JSON configuration.
 
 ## Troubleshooting
 
-If you encounter permission issues on Linux/macOS, you may need to make the script executable:
+### Windows
+- **winget not found**: Install the App Installer from the Microsoft Store
+- **Execution policy errors**: The one-liner bypasses this, but for manual runs use `Set-ExecutionPolicy Bypass -Scope Process`
 
-```bash
-chmod +x install.ps1
-```
+### macOS
+- **Homebrew not found**: Install from https://brew.sh
+- **Permission issues**: Make sure you have admin privileges
+
+### Both Platforms
+- **Font not displaying**: Configure your terminal to use "Meslo Nerd Font" after installation
+- **Profile not loading**: Restart your terminal or run `. $PROFILE`
+
+## Supported Platforms
+
+- ✅ Windows 10/11
+- ✅ macOS (Intel and Apple Silicon)
+- ❌ Linux (not supported)
 
 ## License
 

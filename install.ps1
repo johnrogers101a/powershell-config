@@ -4,202 +4,382 @@
     Installs PowerShell profile configuration files to the user's profile directory.
 
 .DESCRIPTION
-    This script copies the PowerShell profile files and modules to the appropriate
-    locations in the user's PowerShell profile directory. Works on Windows, macOS, and Linux.
-    If files are not present locally, it will download them from Azure Blob Storage.
+    This script installs required software (PowerShell, Git, Oh My Posh) and copies 
+    the PowerShell profile files and modules to the appropriate locations. 
+    Works on Windows, macOS, and Linux. Configuration is driven by install-config.json.
 
 .EXAMPLE
     ./install.ps1
-    Installs the profile files to the default PowerShell profile location.
+    Installs the software and profile files to the default PowerShell profile location.
 #>
 
 [CmdletBinding()]
 param()
 
-# Azure Blob Storage configuration
+#region Configuration
 $AzureBaseUrl = "https://stprofilewus3.blob.core.windows.net/profile-config"
+$ConfigFileName = "install-config.json"
+$ScriptDir = $PSScriptRoot
+#endregion
 
-# Detect OS (works in both Windows PowerShell and PowerShell Core)
-$IsWindowsOS = (-not (Test-Path variable:IsWindows)) -or $IsWindows
-$IsMacOSPlatform = (Test-Path variable:IsMacOS) -and $IsMacOS
-$IsLinuxPlatform = (Test-Path variable:IsLinux) -and $IsLinux
+#region Platform Detection
+class PlatformInfo {
+    [string]$OS
+    [bool]$IsWindows
+    [bool]$IsMacOS
 
-# Check if PowerShell Core (pwsh) needs to be installed
-$pwshInstalled = Get-Command pwsh -ErrorAction SilentlyContinue
-
-if (-not $pwshInstalled) {
-    Write-Host "PowerShell Core not found. Installing..." -ForegroundColor Yellow
-    Write-Host ""
-    
-    if ($IsMacOSPlatform) {
-        # macOS - use Homebrew
-        if (Get-Command brew -ErrorAction SilentlyContinue) {
-            Write-Host "Installing PowerShell via Homebrew..." -ForegroundColor Cyan
-            brew install --cask powershell
-            
-            # Update PATH for current session
-            if (Test-Path "/opt/homebrew/bin/brew") {
-                $env:PATH = "/opt/homebrew/bin:$env:PATH"
-                & /opt/homebrew/bin/brew shellenv | Invoke-Expression
-            }
-            elseif (Test-Path "/usr/local/bin/brew") {
-                $env:PATH = "/usr/local/bin:$env:PATH"
-                & /usr/local/bin/brew shellenv | Invoke-Expression
-            }
+    PlatformInfo() {
+        $this.IsWindows = (-not (Test-Path variable:IsWindows)) -or $IsWindows
+        $this.IsMacOS = (Test-Path variable:IsMacOS) -and $IsMacOS
+        
+        if ($this.IsWindows) {
+            $this.OS = "windows"
+        }
+        elseif ($this.IsMacOS) {
+            $this.OS = "macos"
         }
         else {
-            Write-Host "Error: Homebrew not found. Please install Homebrew first: https://brew.sh" -ForegroundColor Red
-            exit 1
+            throw "Unsupported operating system. This installer only supports Windows and macOS."
         }
     }
-    elseif ($IsWindowsOS) {
-        # Windows - use winget
-        if (Get-Command winget -ErrorAction SilentlyContinue) {
-            Write-Host "Installing PowerShell via winget..." -ForegroundColor Cyan
-            winget install -e --id Microsoft.PowerShell --accept-package-agreements --accept-source-agreements
+}
+#endregion
+
+#region File Operations
+class FileManager {
+    [string]$AzureBaseUrl
+
+    FileManager([string]$baseUrl) {
+        $this.AzureBaseUrl = $baseUrl
+    }
+
+    [bool] DownloadFile([string]$fileName, [string]$destinationPath) {
+        Write-Host "  Downloading $fileName..." -ForegroundColor Cyan
+        try {
+            $url = "$($this.AzureBaseUrl)/$fileName"
             
-            # Refresh PATH for current session
-            $env:PATH = [System.Environment]::GetEnvironmentVariable("PATH", "Machine") + ";" + [System.Environment]::GetEnvironmentVariable("PATH", "User")
+            # Ensure the directory exists
+            $parentDir = Split-Path -Parent $destinationPath
+            if ($parentDir -and -not (Test-Path $parentDir)) {
+                New-Item -ItemType Directory -Path $parentDir -Force | Out-Null
+            }
+            
+            Invoke-WebRequest -Uri $url -OutFile $destinationPath -ErrorAction Stop
+            Write-Host "    Downloaded successfully" -ForegroundColor Green
+            return $true
+        }
+        catch {
+            Write-Host "    Failed to download: $($_.Exception.Message)" -ForegroundColor Red
+            return $false
+        }
+    }
+
+    [void] BackupFile([string]$filePath) {
+        if (Test-Path $filePath) {
+            $backupPath = "$filePath.backup.$(Get-Date -Format 'yyyyMMdd_HHmmss')"
+            Write-Host "  Backing up existing $(Split-Path -Leaf $filePath)..." -ForegroundColor Yellow
+            Copy-Item -Path $filePath -Destination $backupPath -Force
+        }
+    }
+
+    [PSCustomObject] LoadConfiguration([string]$configPath) {
+        if (Test-Path $configPath) {
+            Write-Host "Loading configuration from local file..." -ForegroundColor Cyan
+            return Get-Content $configPath -Raw | ConvertFrom-Json
         }
         else {
-            Write-Host "Error: winget not found. Please install PowerShell manually: https://aka.ms/powershell" -ForegroundColor Red
-            exit 1
-        }
-    }
-    elseif ($IsLinuxPlatform) {
-        # Linux - detect distro and use appropriate package manager
-        if (Test-Path "/etc/os-release") {
-            $osInfo = Get-Content "/etc/os-release" | ConvertFrom-StringData
-            $distroId = $osInfo.ID
-            
-            Write-Host "Installing PowerShell on $distroId..." -ForegroundColor Cyan
-            
-            if ($distroId -match "ubuntu|debian") {
-                # Ubuntu/Debian
-                $ubuntuCmd = 'sudo apt-get update && sudo apt-get install -y wget apt-transport-https software-properties-common && wget -q "https://packages.microsoft.com/config/ubuntu/$(lsb_release -rs)/packages-microsoft-prod.deb" && sudo dpkg -i packages-microsoft-prod.deb && rm packages-microsoft-prod.deb && sudo apt-get update && sudo apt-get install -y powershell'
-                bash -c $ubuntuCmd
-            }
-            elseif ($distroId -match "fedora|rhel|centos") {
-                # Fedora/RHEL/CentOS
-                $fedoraCmd = 'sudo dnf install -y https://packages.microsoft.com/config/rhel/8/packages-microsoft-prod.rpm && sudo dnf install -y powershell'
-                bash -c $fedoraCmd
+            Write-Host "Downloading configuration from Azure..." -ForegroundColor Cyan
+            $tempConfig = Join-Path $env:TEMP $ConfigFileName
+            if ($this.DownloadFile($ConfigFileName, $tempConfig)) {
+                return Get-Content $tempConfig -Raw | ConvertFrom-Json
             }
             else {
-                Write-Host "Error: Unsupported Linux distribution. Please install PowerShell manually: https://aka.ms/powershell" -ForegroundColor Red
-                exit 1
+                throw "Failed to load configuration file"
             }
         }
     }
+}
+#endregion
+
+#region Package Manager Operations
+class PackageManagerBase {
+    [string]$Name
     
-    Write-Host ""
-    Write-Host "PowerShell installed successfully!" -ForegroundColor Green
-    Write-Host ""
+    PackageManagerBase([string]$name) {
+        $this.Name = $name
+    }
+
+    [bool] IsAvailable() {
+        return $null -ne (Get-Command $this.Name -ErrorAction SilentlyContinue)
+    }
+
+    [bool] Install([PSCustomObject]$package) {
+        throw "Install method must be implemented by derived class"
+    }
+
+    [bool] IsPackageInstalled([string]$command) {
+        return $null -ne (Get-Command $command -ErrorAction SilentlyContinue)
+    }
 }
 
-# Function to download file from Azure Blob Storage
-function Get-FileFromAzure {
-    param(
-        [string]$FileName,
-        [string]$DestinationPath
-    )
-    
-    Write-Host "  Downloading $FileName..." -ForegroundColor Cyan
-    try {
-        $url = "$AzureBaseUrl/$FileName"
-        
-        # Ensure the directory exists
-        $parentDir = Split-Path -Parent $DestinationPath
-        if ($parentDir -and -not (Test-Path $parentDir)) {
-            New-Item -ItemType Directory -Path $parentDir -Force | Out-Null
+class WinGetManager : PackageManagerBase {
+    WinGetManager() : base("winget") {}
+
+    [bool] Install([PSCustomObject]$package) {
+        Write-Host "  Installing $($package.name) via winget..." -ForegroundColor Cyan
+        $args = $package.installArgs -join " "
+        $result = winget install $package.installArgs 2>&1
+        return $LASTEXITCODE -eq 0
+    }
+}
+
+class BrewManager : PackageManagerBase {
+    BrewManager() : base("brew") {}
+
+    [bool] Install([PSCustomObject]$package) {
+        Write-Host "  Installing $($package.name) via Homebrew..." -ForegroundColor Cyan
+        $result = & brew @($package.installArgs) 2>&1
+        return $LASTEXITCODE -eq 0
+    }
+
+    [void] UpdateEnvironment() {
+        # Update PATH for current session
+        if (Test-Path "/opt/homebrew/bin/brew") {
+            $env:PATH = "/opt/homebrew/bin:$env:PATH"
+            & /opt/homebrew/bin/brew shellenv | Invoke-Expression
         }
+        elseif (Test-Path "/usr/local/bin/brew") {
+            $env:PATH = "/usr/local/bin:$env:PATH"
+            & /usr/local/bin/brew shellenv | Invoke-Expression
+        }
+    }
+}
+
+}
+#endregion
+
+#region Software Installer
+class SoftwareInstaller {
+    [PlatformInfo]$Platform
+    [PackageManagerBase]$PackageManager
+    [PSCustomObject]$Config
+
+    SoftwareInstaller([PlatformInfo]$platform, [PSCustomObject]$config) {
+        $this.Platform = $platform
+        $this.Config = $config
+        $this.PackageManager = $this.InitializePackageManager()
+    }
+
+    [PackageManagerBase] InitializePackageManager() {
+        if ($this.Platform.IsWindows) {
+            return [WinGetManager]::new()
+        }
+        elseif ($this.Platform.IsMacOS) {
+            return [BrewManager]::new()
+        }
+        return $null
+    }
+
+    [void] InstallSoftware() {
+        $softwareList = $this.Config.software.($this.Platform.OS)
         
-        Invoke-WebRequest -Uri $url -OutFile $DestinationPath -ErrorAction Stop
-        Write-Host "    Downloaded successfully" -ForegroundColor Green
-        return $true
+        if (-not $softwareList) {
+            Write-Host "No software configuration found for $($this.Platform.OS)" -ForegroundColor Yellow
+            return
+        }
+
+        Write-Host ""
+        Write-Host "Checking required software..." -ForegroundColor Green
+        Write-Host ""
+
+        foreach ($package in $softwareList) {
+            # Check if already installed (idempotency)
+            if ($this.PackageManager.IsPackageInstalled($package.command)) {
+                Write-Host "✓ $($package.name) is already installed" -ForegroundColor Green
+                continue
+            }
+
+            Write-Host "Installing $($package.name)..." -ForegroundColor Yellow
+
+            # Check if package manager is available
+            if (-not $this.PackageManager.IsAvailable()) {
+                Write-Host "  Error: $($this.PackageManager.Name) is not available" -ForegroundColor Red
+                if ($this.PackageManager.Name -eq "brew") {
+                    Write-Host "  Install Homebrew: https://brew.sh" -ForegroundColor Yellow
+                }
+                continue
+            }
+
+            # Install the package
+            $success = $this.PackageManager.Install($package)
+            
+            if ($success) {
+                Write-Host "  ✓ $($package.name) installed successfully" -ForegroundColor Green
+                
+                # Update environment if using Homebrew
+                if ($this.PackageManager -is [BrewManager]) {
+                    $this.PackageManager.UpdateEnvironment()
+                }
+            }
+            else {
+                Write-Host "  ✗ Failed to install $($package.name)" -ForegroundColor Red
+            }
+        }
     }
-    catch {
-        Write-Host "    Failed to download: $($_.Exception.Message)" -ForegroundColor Red
-        return $false
-    }
-}
 
-# Get the PowerShell profile directory (works across all platforms)
-$ProfileDir = Split-Path -Parent $PROFILE.CurrentUserAllHosts
-$ModulesDir = Join-Path $ProfileDir "Modules"
+    [void] InstallFonts() {
+        # Check if oh-my-posh is available
+        if (-not (Get-Command oh-my-posh -ErrorAction SilentlyContinue)) {
+            Write-Host "Skipping font installation (oh-my-posh not available)" -ForegroundColor Yellow
+            return
+        }
 
-Write-Host ""
-Write-Host "PowerShell Profile Configuration Installer" -ForegroundColor Cyan
-Write-Host "==========================================" -ForegroundColor Cyan
-Write-Host ""
-Write-Host "Installation Mode: " -NoNewline
-Write-Host "Cloud (Azure Blob Storage)" -ForegroundColor Yellow
-Write-Host "Target Directory: " -NoNewline
-Write-Host $ProfileDir -ForegroundColor Yellow
-Write-Host ""
-
-# Create profile directory if it doesn't exist
-if (-not (Test-Path $ProfileDir)) {
-    Write-Host "Creating profile directory..." -ForegroundColor Green
-    New-Item -ItemType Directory -Path $ProfileDir -Force | Out-Null
-}
-
-# Files to download
-$FilesToDownload = @(
-    "Microsoft.PowerShell_profile.ps1"
-    "Microsoft.VSCode_profile.ps1"
-    "omp.json"
-)
-
-# Download profile files
-Write-Host "Downloading profile files..." -ForegroundColor Green
-foreach ($File in $FilesToDownload) {
-    $DestPath = Join-Path $ProfileDir $File
-    
-    # Backup existing file if it exists
-    if (Test-Path $DestPath) {
-        $BackupPath = "$DestPath.backup.$(Get-Date -Format 'yyyyMMdd_HHmmss')"
-        Write-Host "  Backing up existing $File..." -ForegroundColor Yellow
-        Copy-Item -Path $DestPath -Destination $BackupPath -Force
-    }
-    
-    # Download from Azure
-    $success = Get-FileFromAzure -FileName $File -DestinationPath $DestPath
-    if (-not $success) {
-        Write-Host "  Error: Failed to download $File" -ForegroundColor Red
-    }
-}
-
-# Download modules
-Write-Host ""
-Write-Host "Downloading modules..." -ForegroundColor Green
-
-$ModuleFiles = @(
-    "Modules/ProfileSetup/ProfileSetup.psm1"
-)
-
-foreach ($ModulePath in $ModuleFiles) {
-    $DestPath = Join-Path $ProfileDir $ModulePath
-    $success = Get-FileFromAzure -FileName $ModulePath -DestinationPath $DestPath
-    if (-not $success) {
-        Write-Host "  Error: Failed to download $ModulePath" -ForegroundColor Red
+        Write-Host ""
+        Write-Host "Installing fonts..." -ForegroundColor Green
+        
+        foreach ($font in $this.Config.fonts) {
+            Write-Host "  Installing $($font.name)..." -ForegroundColor Cyan
+            $installCmd = $font.installCommand -split ' '
+            & $installCmd[0] @($installCmd[1..($installCmd.Length - 1)]) 2>&1 | Out-Null
+            
+            if ($LASTEXITCODE -eq 0) {
+                Write-Host "  ✓ $($font.name) installed successfully" -ForegroundColor Green
+            }
+            else {
+                Write-Host "  Note: Font may already be installed or installation skipped" -ForegroundColor Yellow
+            }
+        }
     }
 }
+#endregion
 
-Write-Host ""
-Write-Host "Installation complete!" -ForegroundColor Green
-Write-Host ""
-Write-Host "Files installed to: " -NoNewline
-Write-Host $ProfileDir -ForegroundColor Yellow
-Write-Host ""
-Write-Host "Loading profile..." -ForegroundColor Cyan
+#region Profile Installer
+class ProfileInstaller {
+    [string]$ProfileDir
+    [string]$ModulesDir
+    [FileManager]$FileManager
+    [PSCustomObject]$Config
 
-# Reload the profile
+    ProfileInstaller([FileManager]$fileManager, [PSCustomObject]$config) {
+        $this.ProfileDir = Split-Path -Parent $PROFILE.CurrentUserAllHosts
+        $this.ModulesDir = Join-Path $this.ProfileDir "Modules"
+        $this.FileManager = $fileManager
+        $this.Config = $config
+    }
+
+    [void] Install() {
+        Write-Host ""
+        Write-Host "Installing profile configuration..." -ForegroundColor Green
+        Write-Host "Target Directory: " -NoNewline
+        Write-Host $this.ProfileDir -ForegroundColor Yellow
+        Write-Host ""
+
+        # Create profile directory if it doesn't exist
+        if (-not (Test-Path $this.ProfileDir)) {
+            Write-Host "Creating profile directory..." -ForegroundColor Cyan
+            New-Item -ItemType Directory -Path $this.ProfileDir -Force | Out-Null
+        }
+
+        # Install profile files
+        Write-Host "Installing profile files..." -ForegroundColor Cyan
+        foreach ($file in $this.Config.profileFiles) {
+            $destPath = Join-Path $this.ProfileDir $file
+            $this.FileManager.BackupFile($destPath)
+            
+            $success = $this.FileManager.DownloadFile($file, $destPath)
+            if (-not $success) {
+                Write-Host "  Error: Failed to install $file" -ForegroundColor Red
+            }
+        }
+
+        # Install modules
+        Write-Host ""
+        Write-Host "Installing modules..." -ForegroundColor Cyan
+        foreach ($modulePath in $this.Config.moduleFiles) {
+            $destPath = Join-Path $this.ProfileDir $modulePath
+            $success = $this.FileManager.DownloadFile($modulePath, $destPath)
+            if (-not $success) {
+                Write-Host "  Error: Failed to install $modulePath" -ForegroundColor Red
+            }
+        }
+    }
+
+    [void] LoadProfile() {
+        Write-Host ""
+        Write-Host "Loading profile..." -ForegroundColor Cyan
+        try {
+            . $PROFILE.CurrentUserAllHosts
+            Write-Host "Profile loaded successfully!" -ForegroundColor Green
+        }
+        catch {
+            Write-Host "Note: Profile will be loaded when you start a new PowerShell session." -ForegroundColor Yellow
+        }
+    }
+}
+#endregion
+
+#region Main Installation Orchestrator
+class InstallationOrchestrator {
+    [PlatformInfo]$Platform
+    [FileManager]$FileManager
+    [PSCustomObject]$Config
+    [SoftwareInstaller]$SoftwareInstaller
+    [ProfileInstaller]$ProfileInstaller
+
+    InstallationOrchestrator([string]$azureBaseUrl, [string]$configPath) {
+        $this.Platform = [PlatformInfo]::new()
+        $this.FileManager = [FileManager]::new($azureBaseUrl)
+        $this.Config = $this.FileManager.LoadConfiguration($configPath)
+        $this.SoftwareInstaller = [SoftwareInstaller]::new($this.Platform, $this.Config)
+        $this.ProfileInstaller = [ProfileInstaller]::new($this.FileManager, $this.Config)
+    }
+
+    [void] Run() {
+        $this.ShowHeader()
+        $this.SoftwareInstaller.InstallSoftware()
+        $this.SoftwareInstaller.InstallFonts()
+        $this.ProfileInstaller.Install()
+        $this.ProfileInstaller.LoadProfile()
+        $this.ShowFooter()
+    }
+
+    [void] ShowHeader() {
+        Write-Host ""
+        Write-Host "========================================" -ForegroundColor Cyan
+        Write-Host "PowerShell Profile Configuration Installer" -ForegroundColor Cyan
+        Write-Host "========================================" -ForegroundColor Cyan
+        Write-Host ""
+        Write-Host "Platform: " -NoNewline
+        Write-Host $this.Platform.OS -ForegroundColor Yellow
+        Write-Host "Installation Mode: " -NoNewline
+        Write-Host "Cloud (Azure Blob Storage)" -ForegroundColor Yellow
+    }
+
+    [void] ShowFooter() {
+        Write-Host ""
+        Write-Host "========================================" -ForegroundColor Green
+        Write-Host "Installation Complete!" -ForegroundColor Green
+        Write-Host "========================================" -ForegroundColor Green
+        Write-Host ""
+        Write-Host "Next Steps:" -ForegroundColor Cyan
+        Write-Host "  1. Restart your terminal or run: " -NoNewline
+        Write-Host ". `$PROFILE" -ForegroundColor Yellow
+        Write-Host "  2. Configure your terminal to use the Meslo Nerd Font" -ForegroundColor White
+        Write-Host ""
+    }
+}
+#endregion
+
+#region Entry Point
 try {
-    . $PROFILE.CurrentUserAllHosts
-    Write-Host "Profile loaded successfully!" -ForegroundColor Green
+    $configPath = Join-Path $ScriptDir $ConfigFileName
+    $orchestrator = [InstallationOrchestrator]::new($AzureBaseUrl, $configPath)
+    $orchestrator.Run()
 }
 catch {
-    Write-Host "Note: Profile will be loaded when you start a new PowerShell session." -ForegroundColor Yellow
+    Write-Host ""
+    Write-Host "Installation failed: $($_.Exception.Message)" -ForegroundColor Red
+    Write-Host ""
+    exit 1
 }
-
-Write-Host ""
+#endregion
