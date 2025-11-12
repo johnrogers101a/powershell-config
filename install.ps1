@@ -154,8 +154,6 @@ class BrewManager : PackageManagerBase {
         }
     }
 }
-
-}
 #endregion
 
 #region Software Installer
