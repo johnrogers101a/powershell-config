@@ -92,22 +92,13 @@ try {
         throw "Failed to download Visual Studio installer from Azure Storage"
     }
     
-    # Define all workloads
+    # Define workloads for API/Azure development
     $workloads = @(
-        "Microsoft.VisualStudio.Workload.ManagedDesktop"
-        "Microsoft.VisualStudio.Workload.NetWeb"
-        "Microsoft.VisualStudio.Workload.Azure"
-        "Microsoft.VisualStudio.Workload.Data"
-        "Microsoft.VisualStudio.Workload.Python"
-        "Microsoft.VisualStudio.Workload.Node"
-        "Microsoft.VisualStudio.Workload.Universal"
-        "Microsoft.VisualStudio.Workload.NativeDesktop"
-        "Microsoft.VisualStudio.Workload.NativeMobile"
-        "Microsoft.VisualStudio.Workload.ManagedGame"
-        "Microsoft.VisualStudio.Workload.NativeGame"
-        "Microsoft.VisualStudio.Workload.VisualStudioExtension"
-        "Microsoft.VisualStudio.Workload.Office"
-        "Microsoft.VisualStudio.Workload.NetCrossPlat"
+        "Microsoft.VisualStudio.Workload.NetWeb"          # ASP.NET and web development
+        "Microsoft.VisualStudio.Workload.Azure"           # Azure development
+        "Microsoft.VisualStudio.Workload.Node"            # Node.js development
+        "Microsoft.VisualStudio.Workload.ManagedDesktop"  # .NET desktop development (WPF, WinForms, console apps)
+        "Microsoft.VisualStudio.Workload.Universal"       # WinUI application development
     )
     
     # Install base product first, then workloads
