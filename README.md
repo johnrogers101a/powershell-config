@@ -5,9 +5,10 @@ A cross-platform PowerShell profile configuration with custom modules and Oh My 
 ## Features
 
 - 🚀 **Automated Installation** - One-line install for Windows and macOS
-- 📦 **Software Management** - Automatically installs PowerShell, Git, and Oh My Posh
+- 📦 **Software Management** - Automatically installs PowerShell, Git, Oh My Posh, and Visual Studio Code
 - 🎨 **Oh My Posh Theming** - Beautiful terminal prompt with git integration
 - 🔤 **Nerd Fonts** - Automatic Meslo Nerd Font installation
+- 🔄 **Auto-Sync** - GitHub Actions automatically syncs changes to Azure
 - ⚙️ **Modular Configuration** - JSON-driven installation config
 - 💾 **Safe Backups** - Existing files are timestamped and backed up
 - 🔄 **Idempotent** - Run multiple times safely
