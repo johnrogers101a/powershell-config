@@ -8,7 +8,9 @@ class FileManager {
     [bool] DownloadFile([string]$fileName, [string]$destinationPath) {
         Write-Host "  Downloading $fileName..." -ForegroundColor Cyan
         try {
-            $url = "$($this.AzureBaseUrl)/$fileName"
+            # Add cache buster to URL
+            $cacheBuster = "v=$(Get-Date -Format 'yyyyMMddHHmmss')"
+            $url = "$($this.AzureBaseUrl)/$fileName`?$cacheBuster"
             
             # Ensure the directory exists
             $parentDir = Split-Path -Parent $destinationPath
@@ -34,6 +36,7 @@ class FileManager {
         }
         else {
             Write-Host "Downloading configuration from Azure..." -ForegroundColor Cyan
+            $cacheBuster = "v=$(Get-Date -Format 'yyyyMMddHHmmss')"
             $tempConfig = Join-Path $env:TEMP $configFileName
             if ($this.DownloadFile($configFileName, $tempConfig)) {
                 return Get-Content $tempConfig -Raw | ConvertFrom-Json

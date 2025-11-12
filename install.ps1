@@ -41,11 +41,15 @@ Write-Host "Creating temporary directory..." -ForegroundColor Cyan
 New-Item -ItemType Directory -Path $TempDir -Force | Out-Null
 Write-Host "  Location: $TempDir" -ForegroundColor Yellow
 
+# Cache buster using timestamp
+$cacheBuster = "v=$(Get-Date -Format 'yyyyMMddHHmmss')"
+
 Write-Host ""
 Write-Host "Downloading installation files..." -ForegroundColor Cyan
+Write-Host "  Cache buster: $cacheBuster" -ForegroundColor Gray
 
 foreach ($file in $FilesToDownload) {
-    $url = "$AzureBaseUrl/$file"
+    $url = "$AzureBaseUrl/$file`?$cacheBuster"
     $destination = Join-Path $TempDir $file
     $destinationDir = Split-Path -Parent $destination
     
@@ -56,7 +60,7 @@ foreach ($file in $FilesToDownload) {
     
     Write-Host "  Downloading $file..." -ForegroundColor Gray
     try {
-        Invoke-WebRequest -Uri $url -OutFile $destination -ErrorAction Stop
+        Invoke-WebRequest -Uri $url -OutFile $destination -ErrorAction Stop -UseBasicParsing
     }
     catch {
         Write-Host "  ✗ Failed to download $file" -ForegroundColor Red
