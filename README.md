@@ -4,13 +4,13 @@ A cross-platform PowerShell profile configuration with custom modules and Oh My 
 
 ## Features
 
-- 🚀 **Automated Installation** - One-line install for Windows and macOS
-- 📦 **Software Management** - Automatically installs PowerShell, Git, Oh My Posh, and Visual Studio Code
+- 🚀 **Automated Installation** - One-line install for Windows and macOS with cache busting
+- 📦 **Software Management** - Automatically installs PowerShell, Git, Oh My Posh, VS Code, and VS 2026 Enterprise
 - 🎨 **Oh My Posh Theming** - Beautiful terminal prompt with git integration
 - 🔤 **Nerd Fonts** - Automatic Meslo Nerd Font installation
 - 🔄 **Auto-Sync** - GitHub Actions automatically syncs changes to Azure
 - ⚙️ **Modular Configuration** - JSON-driven installation config
-- 💾 **Safe Backups** - Existing files are timestamped and backed up
+- � **Force Reload** - Always gets the latest code (no backups)
 - 🔄 **Idempotent** - Run multiple times safely
 
 ## Quick Installation
@@ -23,12 +23,12 @@ A cross-platform PowerShell profile configuration with custom modules and Oh My 
 
 #### Windows (PowerShell)
 ```powershell
-Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; iex ((New-Object System.Net.WebClient).DownloadString('https://stprofilewus3.blob.core.windows.net/profile-config/install.ps1'))
+Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; $wc = New-Object System.Net.WebClient; $wc.CachePolicy = New-Object System.Net.Cache.RequestCachePolicy([System.Net.Cache.RequestCacheLevel]::NoCacheNoStore); iex ($wc.DownloadString('https://stprofilewus3.blob.core.windows.net/profile-config/install.ps1'))
 ```
 
 #### macOS (Terminal)
 ```bash
-pwsh -NoProfile -ExecutionPolicy Bypass -Command "iex (irm 'https://stprofilewus3.blob.core.windows.net/profile-config/install.ps1')"
+pwsh -NoProfile -ExecutionPolicy Bypass -Command "\$wc = New-Object System.Net.WebClient; \$wc.CachePolicy = New-Object System.Net.Cache.RequestCachePolicy([System.Net.Cache.RequestCacheLevel]::NoCacheNoStore); iex (\$wc.DownloadString('https://stprofilewus3.blob.core.windows.net/profile-config/install.ps1'))"
 ```
 
 **Don't have PowerShell installed?** The installer will detect this and install it automatically for your platform!
@@ -60,6 +60,8 @@ pwsh -NoProfile -ExecutionPolicy Bypass -Command "if (!(Get-Command pwsh -ErrorA
 - **PowerShell** - Latest version via winget (Windows) or Homebrew (macOS)
 - **Git** - Version control system
 - **Oh My Posh** - Terminal prompt theming engine
+- **Visual Studio Code** - Code editor
+- **Visual Studio 2026 Enterprise** - Full IDE with all workloads (Windows only)
 - **Meslo Nerd Font** - Required for prompt icons and symbols
 
 ### Configuration Files
@@ -81,13 +83,12 @@ If you already have PowerShell installed, simply run:
 
 The installation script follows SOLID principles and provides:
 
-1. **Software Installation** - Installs PowerShell, Git, and Oh My Posh if not present
+1. **Software Installation** - Installs PowerShell, Git, Oh My Posh, and Visual Studio 2026 Enterprise (Windows only) if not present
 2. **Font Installation** - Installs Meslo Nerd Font via Oh My Posh
-3. **Profile Configuration** - Copies profile files to your PowerShell directory
-4. **Safe Backups** - Backs up existing files with timestamps (e.g., `file.backup.20231115_143022`)
-5. **Module Setup** - Installs custom PowerShell modules
-6. **Idempotent** - Can be run multiple times safely (skips already-installed software)
-7. **Automatic Loading** - Loads the new profile immediately
+3. **Profile Configuration** - Overwrites profile files in your PowerShell directory (no backups)
+4. **Module Setup** - Force reloads custom PowerShell modules to ensure latest code
+5. **Idempotent** - Can be run multiple times safely (skips already-installed software)
+6. **Automatic Loading** - Loads the new profile immediately
 
 ## Architecture
 
@@ -143,7 +144,7 @@ The script will:
 
 ## Uninstall
 
-To remove the configuration, delete the installed files from your PowerShell profile directory. Timestamped backups of your original files are created during installation.
+To remove the configuration, delete the installed files from your PowerShell profile directory.
 
 ## Requirements
 
