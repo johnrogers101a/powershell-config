@@ -1,45 +1,34 @@
 #!/usr/bin/env pwsh
 <#
 .SYNOPSIS
-    Uploads PowerShell profile configuration files to Azure Blob Storage.
+    Uploads all repository files to Azure Blob Storage.
 
 .DESCRIPTION
-    This script uploads all profile files and modules to Azure Blob Storage,
-    replacing existing files. Requires Azure CLI (az) to be installed and authenticated.
+    Recursively uploads all files in the repository to Azure Blob Storage,
+    preserving directory structure. Skips .git directory and README.md.
+    Requires Azure CLI (az) to be installed and authenticated.
+    
+    Idempotent - overwrites existing files to ensure latest versions.
+
+.PARAMETER ExcludePatterns
+    Array of patterns to exclude from upload (default: .git, README.md)
 
 .EXAMPLE
-    ./upload-to-azure.ps1
-    Uploads all files to the configured Azure storage account.
+    ./upload.ps1
+    Uploads all repository files to the configured Azure storage account.
 #>
 
 [CmdletBinding()]
-param()
+param(
+    [Parameter()]
+    [string[]]$ExcludePatterns = @('.git', 'README.md')
+)
+
+$ErrorActionPreference = 'Stop'
 
 # Azure Storage configuration
 $StorageAccount = "stprofilewus3"
 $ContainerName = "profile-config"
-
-# Files to upload from root directory
-$FilesToUpload = @(
-    "bootstrap.ps1"
-    "install.ps1"
-    "install-config.json"
-    "upload.ps1"
-    "Microsoft.PowerShell_profile.ps1"
-    "Microsoft.VSCode_profile.ps1"
-    "omp.json"
-)
-
-# Module files to upload (with relative paths)
-$ModuleFiles = @(
-    "Modules/ProfileSetup/ProfileSetup.psm1"
-    "Modules/ProfileSetup/PlatformInfo.psm1"
-    "Modules/ProfileSetup/FileManager.psm1"
-    "Modules/ProfileSetup/PackageManager.psm1"
-    "Modules/ProfileSetup/SoftwareInstaller.psm1"
-    "Modules/ProfileSetup/ProfileInstallerClass.psm1"
-    "Modules/ProfileSetup/Installer.psm1"
-)
 
 Write-Host ""
 Write-Host "Azure Blob Storage Upload Script" -ForegroundColor Cyan
@@ -71,70 +60,66 @@ Write-Host "  ✓ Authenticated as: " -NoNewline -ForegroundColor Green
 Write-Host $account.user.name -ForegroundColor White
 Write-Host ""
 
-# Get script directory
-$ScriptDir = $PSScriptRoot
+# Get script directory (repository root)
+$RepoRoot = $PSScriptRoot
 
-# Upload root files
-Write-Host "Uploading profile files..." -ForegroundColor Green
-foreach ($File in $FilesToUpload) {
-    $FilePath = Join-Path $ScriptDir $File
+# Get all files recursively, excluding specified patterns
+Write-Host "Scanning repository for files..." -ForegroundColor Cyan
+$allFiles = Get-ChildItem -Path $RepoRoot -File -Recurse | Where-Object {
+    $relativePath = $_.FullName.Substring($RepoRoot.Length + 1)
+    $shouldExclude = $false
     
-    if (Test-Path $FilePath) {
-        Write-Host "  Uploading $File..." -ForegroundColor Cyan
-        
-        try {
-            az storage blob upload `
-                --account-name $StorageAccount `
-                --container-name $ContainerName `
-                --name $File `
-                --file $FilePath `
-                --overwrite `
-                --auth-mode key `
-                --only-show-errors | Out-Null
-            
-            Write-Host "    ✓ Uploaded successfully" -ForegroundColor Green
-        }
-        catch {
-            Write-Host "    ✗ Failed to upload: $_" -ForegroundColor Red
+    foreach ($pattern in $ExcludePatterns) {
+        if ($relativePath -like "*$pattern*" -or $_.Name -eq $pattern) {
+            $shouldExclude = $true
+            break
         }
     }
-    else {
-        Write-Host "  Warning: $File not found, skipping" -ForegroundColor Yellow
-    }
+    
+    -not $shouldExclude
 }
 
-# Upload module files
+$totalFiles = $allFiles.Count
+Write-Host "  Found $totalFiles files to upload" -ForegroundColor Yellow
 Write-Host ""
-Write-Host "Uploading modules..." -ForegroundColor Green
-foreach ($ModulePath in $ModuleFiles) {
-    $FilePath = Join-Path $ScriptDir $ModulePath
+
+# Upload each file
+$uploadedCount = 0
+$failedCount = 0
+
+Write-Host "Uploading files..." -ForegroundColor Green
+foreach ($file in $allFiles) {
+    # Get relative path for blob name
+    $relativePath = $file.FullName.Substring($RepoRoot.Length + 1).Replace('\', '/')
     
-    if (Test-Path $FilePath) {
-        Write-Host "  Uploading $ModulePath..." -ForegroundColor Cyan
+    Write-Host "  Uploading $relativePath..." -ForegroundColor Cyan
+    
+    try {
+        az storage blob upload `
+            --account-name $StorageAccount `
+            --container-name $ContainerName `
+            --name $relativePath `
+            --file $file.FullName `
+            --overwrite `
+            --auth-mode key `
+            --only-show-errors | Out-Null
         
-        try {
-            az storage blob upload `
-                --account-name $StorageAccount `
-                --container-name $ContainerName `
-                --name $ModulePath `
-                --file $FilePath `
-                --overwrite `
-                --auth-mode key `
-                --only-show-errors | Out-Null
-            
-            Write-Host "    ✓ Uploaded successfully" -ForegroundColor Green
-        }
-        catch {
-            Write-Host "    ✗ Failed to upload: $_" -ForegroundColor Red
-        }
+        Write-Host "    ✓ Uploaded successfully" -ForegroundColor Green
+        $uploadedCount++
     }
-    else {
-        Write-Host "  Warning: $ModulePath not found, skipping" -ForegroundColor Yellow
+    catch {
+        Write-Host "    ✗ Failed to upload: $_" -ForegroundColor Red
+        $failedCount++
     }
 }
 
 Write-Host ""
-Write-Host "Upload complete!" -ForegroundColor Green
+Write-Host "Upload Summary:" -ForegroundColor Cyan
+Write-Host "  Total files: $totalFiles" -ForegroundColor White
+Write-Host "  Uploaded: " -NoNewline
+Write-Host $uploadedCount -ForegroundColor Green
+Write-Host "  Failed: " -NoNewline
+Write-Host $failedCount -ForegroundColor $(if ($failedCount -gt 0) { "Red" } else { "Green" })
 Write-Host ""
 Write-Host "Files are now available at:" -ForegroundColor Cyan
 Write-Host "https://$StorageAccount.blob.core.windows.net/$ContainerName/" -ForegroundColor White
@@ -163,5 +148,5 @@ else {
 
 Write-Host ""
 
-# Exit with success code (files were uploaded successfully)
-exit 0
+# Exit with appropriate code
+exit $(if ($failedCount -eq 0) { 0 } else { 1 })

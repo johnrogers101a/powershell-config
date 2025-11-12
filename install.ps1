@@ -4,56 +4,69 @@
     Installs PowerShell profile configuration files to the user's profile directory.
 
 .DESCRIPTION
-    This script downloads all required files to a temporary directory, loads the 
-    installation modules, and executes the installation process. Works on Windows 
-    and macOS. Configuration is driven by install-config.json.
+    Script-based installer using individual PowerShell scripts instead of modules.
+    Downloads required installation scripts, executes setup, and installs profile.
+    Works on Windows and macOS. Configuration driven by install-config.json.
+    
+    Architecture: SOLID, DRY, YAGNI, Idempotent
+    - Each script has a single responsibility
+    - Reusable scripts avoid duplication
+    - No unnecessary complexity
+    - Safe to run multiple times
 
 .EXAMPLE
     ./install.ps1
-    Downloads and installs the software and profile files to the default PowerShell profile location.
+    Downloads and installs software and profile files to default PowerShell profile location.
 #>
 
 [CmdletBinding()]
 param()
 
+$ErrorActionPreference = 'Stop'
+
 #region Configuration
 $AzureBaseUrl = "https://stprofilewus3.blob.core.windows.net/profile-config"
 $TempDir = Join-Path $env:TEMP "powershell-profile-setup-$(Get-Date -Format 'yyyyMMddHHmmss')"
 
-$FilesToDownload = @(
+# Core installation scripts needed for bootstrap
+$ScriptsToDownload = @(
     "install-config.json"
-    "Modules/ProfileSetup/PlatformInfo.psm1"
-    "Modules/ProfileSetup/FileManager.psm1"
-    "Modules/ProfileSetup/PackageManager.psm1"
-    "Modules/ProfileSetup/SoftwareInstaller.psm1"
-    "Modules/ProfileSetup/ProfileInstallerClass.psm1"
-    "Modules/ProfileSetup/Installer.psm1"
+    "Scripts/Core/Get-PlatformInfo.ps1"
+    "Scripts/Utils/Get-FileFromAzure.ps1"
+    "Scripts/Utils/Get-ConfigFromAzure.ps1"
+    "Scripts/Install/Install-WithWinGet.ps1"
+    "Scripts/Install/Install-WithBrew.ps1"
+    "Scripts/Install/Install-Software.ps1"
+    "Scripts/Install/Install-VisualStudio.ps1"
+    "Scripts/Install/Install-Fonts.ps1"
+    "Scripts/Profile/Install-ProfileFiles.ps1"
 )
 #endregion
 
-#region Download Files
+#region Show Header
 Write-Host ""
 Write-Host "========================================" -ForegroundColor Cyan
-Write-Host "PowerShell Profile Setup - Bootstrap" -ForegroundColor Cyan
+Write-Host "PowerShell Profile Configuration Installer" -ForegroundColor Cyan
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host ""
+#endregion
+
+#region Download Bootstrap Scripts
 Write-Host "Creating temporary directory..." -ForegroundColor Cyan
 New-Item -ItemType Directory -Path $TempDir -Force | Out-Null
 Write-Host "  Location: $TempDir" -ForegroundColor Yellow
 
-# Cache buster using timestamp
 $cacheBuster = "v=$(Get-Date -Format 'yyyyMMddHHmmss')"
 
 Write-Host ""
-Write-Host "Downloading installation files..." -ForegroundColor Cyan
+Write-Host "Downloading installation scripts..." -ForegroundColor Cyan
 Write-Host "  Cache buster: $cacheBuster" -ForegroundColor Gray
 
-foreach ($file in $FilesToDownload) {
+foreach ($file in $ScriptsToDownload) {
     $url = "$AzureBaseUrl/$file`?$cacheBuster"
     $destination = Join-Path $TempDir $file
     $destinationDir = Split-Path -Parent $destination
     
-    # Create subdirectories if needed
     if (-not (Test-Path $destinationDir)) {
         New-Item -ItemType Directory -Path $destinationDir -Force | Out-Null
     }
@@ -70,41 +83,67 @@ foreach ($file in $FilesToDownload) {
     }
 }
 
-Write-Host "  ✓ All files downloaded successfully" -ForegroundColor Green
+Write-Host "  ✓ All scripts downloaded successfully" -ForegroundColor Green
 #endregion
 
-#region Load and Execute
-Write-Host ""
-Write-Host "Loading installation module..." -ForegroundColor Cyan
-Write-Host "  [Bootstrap v3.0 - Force Module Reload]" -ForegroundColor Magenta
-
+#region Execute Installation
 try {
-    # Remove any cached versions of the modules first
-    $modulePath = Join-Path $TempDir "Modules/ProfileSetup"
-    $moduleFiles = Get-ChildItem -Path $modulePath -Filter "*.psm1" | Select-Object -ExpandProperty BaseName
+    # Get platform info
+    $platformScript = Join-Path $TempDir "Scripts/Core/Get-PlatformInfo.ps1"
+    $platform = & $platformScript
     
-    $removedCount = 0
-    foreach ($mod in $moduleFiles) {
-        if (Get-Module -Name $mod) {
-            Remove-Module -Name $mod -Force -ErrorAction SilentlyContinue
-            $removedCount++
-        }
+    Write-Host ""
+    Write-Host "Platform: " -NoNewline
+    Write-Host $platform.OS -ForegroundColor Yellow
+    Write-Host "Installation Mode: " -NoNewline
+    Write-Host "Cloud (Azure Blob Storage)" -ForegroundColor Yellow
+    
+    # Load configuration
+    $configScript = Join-Path $TempDir "Scripts/Utils/Get-ConfigFromAzure.ps1"
+    $configPath = Join-Path $TempDir "install-config.json"
+    $config = & $configScript -BaseUrl $AzureBaseUrl -LocalPath $configPath -FileName "install-config.json"
+    
+    # Execute installation steps
+    $scriptsRoot = Join-Path $TempDir "Scripts"
+    
+    # Install software
+    $installSoftwareScript = Join-Path $scriptsRoot "Install/Install-Software.ps1"
+    & $installSoftwareScript -Platform $platform -Config $config -ScriptsRoot $scriptsRoot
+    
+    # Install Visual Studio (Windows only)
+    $installVSScript = Join-Path $scriptsRoot "Install/Install-VisualStudio.ps1"
+    & $installVSScript -Platform $platform
+    
+    # Install fonts
+    $installFontsScript = Join-Path $scriptsRoot "Install/Install-Fonts.ps1"
+    & $installFontsScript -Config $config
+    
+    # Install profile files
+    $installProfileScript = Join-Path $scriptsRoot "Profile/Install-ProfileFiles.ps1"
+    & $installProfileScript -BaseUrl $AzureBaseUrl -Config $config -ScriptsRoot $scriptsRoot
+    
+    # Load profile
+    Write-Host ""
+    Write-Host "Loading profile..." -ForegroundColor Cyan
+    try {
+        . $global:PROFILE.CurrentUserAllHosts
+        Write-Host "Profile loaded successfully!" -ForegroundColor Green
+    }
+    catch {
+        Write-Host "Note: Profile will be loaded when you start a new PowerShell session." -ForegroundColor Yellow
     }
     
-    if ($removedCount -gt 0) {
-        Write-Host "  Cleared $removedCount cached module(s)" -ForegroundColor Yellow
-    } else {
-        Write-Host "  No cached modules found (clean state)" -ForegroundColor Gray
-    }
-    
-    # Import the main installer module with force reload
-    $installerModule = Join-Path $TempDir "Modules/ProfileSetup/Installer.psm1"
-    Import-Module $installerModule -Force -ErrorAction Stop
-    
-    Write-Host "  ✓ Module loaded successfully" -ForegroundColor Green
-    
-    # Execute the installation
-    Invoke-Install -AzureBaseUrl $AzureBaseUrl -TempDirectory $TempDir
+    # Show footer
+    Write-Host ""
+    Write-Host "========================================" -ForegroundColor Green
+    Write-Host "Installation Complete!" -ForegroundColor Green
+    Write-Host "========================================" -ForegroundColor Green
+    Write-Host ""
+    Write-Host "Next Steps:" -ForegroundColor Cyan
+    Write-Host "  1. Restart your terminal or run: " -NoNewline
+    Write-Host ". `$PROFILE" -ForegroundColor Yellow
+    Write-Host "  2. Configure your terminal to use the Meslo Nerd Font" -ForegroundColor White
+    Write-Host ""
 }
 catch {
     Write-Host ""

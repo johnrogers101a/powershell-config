@@ -4,8 +4,20 @@
     "Microsoft.VSCode_profile.ps1",
     "omp.json"
   ],
-  "moduleFiles": [
-    "Modules/ProfileSetup/ProfileSetup.psm1"
+  "scriptFiles": [
+    "Scripts/Core/Get-PlatformInfo.ps1",
+    "Scripts/Utils/Get-FileFromAzure.ps1",
+    "Scripts/Utils/Get-ConfigFromAzure.ps1",
+    "Scripts/Install/Install-WithWinGet.ps1",
+    "Scripts/Install/Install-WithBrew.ps1",
+    "Scripts/Install/Install-Software.ps1",
+    "Scripts/Install/Install-VisualStudio.ps1",
+    "Scripts/Install/Install-Fonts.ps1",
+    "Scripts/Profile/Install-ProfileFiles.ps1",
+    "Scripts/Profile/Install-ModuleIfMissing.ps1",
+    "Scripts/Profile/Get-GitBranches.ps1",
+    "Scripts/Profile/Set-DefaultWorkingDirectory.ps1",
+    "Scripts/Profile/Initialize-PowerShellProfile.ps1"
   ],
   "software": {
     "windows": [
