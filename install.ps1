@@ -74,7 +74,19 @@ Write-Host ""
 Write-Host "Loading installation module..." -ForegroundColor Cyan
 
 try {
-    # Import the main installer module
+    # Remove any cached versions of the modules first
+    $modulePath = Join-Path $TempDir "Modules/ProfileSetup"
+    $moduleFiles = Get-ChildItem -Path $modulePath -Filter "*.psm1" | Select-Object -ExpandProperty BaseName
+    
+    foreach ($mod in $moduleFiles) {
+        if (Get-Module -Name $mod) {
+            Remove-Module -Name $mod -Force -ErrorAction SilentlyContinue
+        }
+    }
+    
+    Write-Host "  Cleared cached modules" -ForegroundColor Gray
+    
+    # Import the main installer module with force reload
     $installerModule = Join-Path $TempDir "Modules/ProfileSetup/Installer.psm1"
     Import-Module $installerModule -Force -ErrorAction Stop
     
