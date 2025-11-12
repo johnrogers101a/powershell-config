@@ -86,18 +86,19 @@ if ($PSVersionTable.PSVersion.Major -eq 5 -and $null -eq $PSVersionTable.Platfor
     Write-Host "Launching installer in PowerShell 7+..." -ForegroundColor Cyan
     Write-Host ""
     
-    # Launch pwsh with the main installer
+    # Launch pwsh with the main installer using cache buster
     $cacheBuster = "v=$([DateTimeOffset]::UtcNow.ToUnixTimeSeconds())"
     $installerUrl = "https://stprofilewus3.blob.core.windows.net/profile-config/install.ps1?$cacheBuster"
     
-    $pwshCommand = "iex ((New-Object System.Net.WebClient).DownloadString('$installerUrl'))"
+    # Use Invoke-WebRequest with no cache to download installer script
+    $pwshCommand = "`$wc = New-Object System.Net.WebClient; `$wc.CachePolicy = New-Object System.Net.Cache.RequestCachePolicy([System.Net.Cache.RequestCacheLevel]::NoCacheNoStore); iex (`$wc.DownloadString('$installerUrl'))"
     
     # Start pwsh in a new process
     Start-Process -FilePath "pwsh" -ArgumentList "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", $pwshCommand -Wait -NoNewWindow
     
     Write-Host ""
     Write-Host "Installation complete!" -ForegroundColor Green
-    exit 0
+    Write-Host ""
 }
 else {
     Write-Host "✗ Unsupported platform or PowerShell version" -ForegroundColor Red
