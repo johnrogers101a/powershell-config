@@ -1,6 +1,7 @@
 using module ./PlatformInfo.psm1
 using module ./PackageManager.psm1
 
+# Module Version: 2.0 - Fixed VS installer with WebClient and UserProfile path
 class SoftwareInstaller {
     [object]$Platform
     [object]$PackageManager
@@ -111,6 +112,7 @@ class SoftwareInstaller {
 
         Write-Host ""
         Write-Host "Installing Visual Studio 2026 Enterprise..." -ForegroundColor Yellow
+        Write-Host "  [SoftwareInstaller v2.0 - WebClient + UserProfile]" -ForegroundColor Gray
         Write-Host "  This may take several minutes..." -ForegroundColor Cyan
 
         # Download Visual Studio 2026 bootstrapper to user's Downloads folder (more reliable than TEMP)
