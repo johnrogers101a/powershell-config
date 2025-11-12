@@ -57,9 +57,35 @@ try {
         Remove-Item $vsBootstrapperPath -Force -ErrorAction Stop
     }
     
-    Write-Host "  Downloading Visual Studio installer..." -ForegroundColor Cyan
-    Write-Host "  URL: $vsBootstrapperUrl" -ForegroundColor Gray
-    Write-Host "  Destination: $vsBootstrapperPath" -ForegroundColor Gray
+    Write-Host "  Downloading Visual Studio 2026 Enterprise installer..." -ForegroundColor Cyan
+    
+    try {
+        # Use Invoke-WebRequest which handles redirects properly
+        # aka.ms URLs redirect to the actual download location
+        Invoke-WebRequest -Uri $vsBootstrapperUrl `
+            -OutFile $vsBootstrapperPath `
+            -MaximumRedirection 10 `
+            -UserAgent "PowerShell" `
+            -ErrorAction Stop
+        
+        # Validate the download by checking file size and MZ header
+        $fileInfo = Get-Item $vsBootstrapperPath
+        $fileSize = $fileInfo.Length
+        
+        Write-Host "  Downloaded $fileSize bytes" -ForegroundColor Cyan
+        
+        # Check if file is a valid executable (MZ header)
+        $bytes = [System.IO.File]::ReadAllBytes($vsBootstrapperPath)
+        if ($bytes.Length -lt 2 -or $bytes[0] -ne 0x4D -or $bytes[1] -ne 0x5A) {
+            throw "Downloaded file is not a valid executable (missing MZ header)"
+        }
+        
+        Write-Host "  Installer downloaded successfully" -ForegroundColor Green
+    }
+    catch {
+        Write-Host "  Download failed: $_" -ForegroundColor Red
+        throw "Failed to download Visual Studio installer"
+    }
     
     # Use System.Net.WebClient for most reliable download with automatic redirect handling
     try {
@@ -85,26 +111,42 @@ try {
     $fileSize = $fileInfo.Length
     
     if ($fileSize -lt 100KB) {
-        # File is too small, likely a redirect or error page
-        Write-Host "  Download appears incomplete ($fileSize bytes), trying alternative method..." -ForegroundColor Yellow
-        Remove-Item $vsBootstrapperPath -Force -ErrorAction SilentlyContinue
+        # File is too small, likely an HTML redirect or error page
+        Write-Host "  Download appears incomplete ($fileSize bytes)" -ForegroundColor Yellow
         
-        # Try using System.Net.WebClient which handles redirects better
-        $webClient = New-Object System.Net.WebClient
-        $webClient.DownloadFile($vsBootstrapperUrl, $vsBootstrapperPath)
-        $webClient.Dispose()
-        
-        # Re-check file size
-        if (Test-Path $vsBootstrapperPath) {
-            $fileInfo = Get-Item $vsBootstrapperPath
-            $fileSize = $fileInfo.Length
+        # Read the content to see what we got
+        $content = Get-Content $vsBootstrapperPath -Raw -Encoding UTF8
+        if ($content -match '<html|<!DOCTYPE') {
+            Write-Host "  Downloaded file is HTML (redirect page), not the installer" -ForegroundColor Yellow
+            
+            # Try to extract the actual download URL from the redirect page
+            if ($content -match 'href="([^"]+vs_[eE]nterprise\.exe[^"]*)"') {
+                $actualUrl = $matches[1]
+                Write-Host "  Found redirect URL: $actualUrl" -ForegroundColor Cyan
+                Remove-Item $vsBootstrapperPath -Force -ErrorAction SilentlyContinue
+                
+                $webClient = New-Object System.Net.WebClient
+                $webClient.Headers.Add("User-Agent", "PowerShell")
+                $webClient.DownloadFile($actualUrl, $vsBootstrapperPath)
+                $webClient.Dispose()
+                
+                # Re-check file size
+                if (Test-Path $vsBootstrapperPath) {
+                    $fileInfo = Get-Item $vsBootstrapperPath
+                    $fileSize = $fileInfo.Length
+                }
+            }
         }
         
         if ($fileSize -lt 100KB) {
-            throw "Download failed: File size too small ($fileSize bytes) after multiple attempts"
+            # Save the HTML content for debugging
+            $debugPath = Join-Path $desktopPath "vs_download_debug.html"
+            Copy-Item $vsBootstrapperPath $debugPath -Force
+            Write-Host "  Debug: HTML content saved to $debugPath" -ForegroundColor Gray
+            throw "Download failed: File size too small ($fileSize bytes). Visual Studio installer requires manual download from https://visualstudio.microsoft.com/downloads/"
         }
         
-        Write-Host "  ✓ Downloaded successfully using WebClient" -ForegroundColor Green
+        Write-Host "  ✓ Downloaded successfully after redirect" -ForegroundColor Green
     }
     
     # Verify file is a valid PE executable
