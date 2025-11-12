@@ -60,17 +60,17 @@ try {
     Write-Host "  URL: $vsBootstrapperUrl" -ForegroundColor Gray
     Write-Host "  Destination: $vsBootstrapperPath" -ForegroundColor Gray
     
-    # Use Start-BitsTransfer for most reliable download on Windows
+    # Use Invoke-WebRequest with proper settings for redirects
     try {
+        $ProgressPreference = 'SilentlyContinue'
+        Invoke-WebRequest -Uri $vsBootstrapperUrl -OutFile $vsBootstrapperPath -UseBasicParsing -MaximumRedirection 5 -ErrorAction Stop
+        Write-Host "  ✓ Downloaded using Invoke-WebRequest" -ForegroundColor Green
+    }
+    catch {
+        Write-Host "  Trying BITS transfer as fallback..." -ForegroundColor Yellow
         Import-Module BitsTransfer -ErrorAction Stop
         Start-BitsTransfer -Source $vsBootstrapperUrl -Destination $vsBootstrapperPath -Description "Visual Studio Installer" -ErrorAction Stop
         Write-Host "  ✓ Downloaded using BITS transfer" -ForegroundColor Green
-    }
-    catch {
-        Write-Host "  BITS transfer unavailable, trying Invoke-WebRequest..." -ForegroundColor Yellow
-        $ProgressPreference = 'SilentlyContinue'
-        Invoke-WebRequest -Uri $vsBootstrapperUrl -OutFile $vsBootstrapperPath -UseBasicParsing -ErrorAction Stop
-        Write-Host "  ✓ Downloaded using Invoke-WebRequest" -ForegroundColor Green
     }
     
     # Verify download
@@ -81,8 +81,27 @@ try {
     $fileInfo = Get-Item $vsBootstrapperPath
     $fileSize = $fileInfo.Length
     
-    if ($fileSize -lt 1MB) {
-        throw "Download failed: File size too small ($fileSize bytes) - expected at least 1 MB"
+    if ($fileSize -lt 100KB) {
+        # File is too small, likely a redirect or error page
+        Write-Host "  Download appears incomplete ($fileSize bytes), trying alternative method..." -ForegroundColor Yellow
+        Remove-Item $vsBootstrapperPath -Force -ErrorAction SilentlyContinue
+        
+        # Try using System.Net.WebClient which handles redirects better
+        $webClient = New-Object System.Net.WebClient
+        $webClient.DownloadFile($vsBootstrapperUrl, $vsBootstrapperPath)
+        $webClient.Dispose()
+        
+        # Re-check file size
+        if (Test-Path $vsBootstrapperPath) {
+            $fileInfo = Get-Item $vsBootstrapperPath
+            $fileSize = $fileInfo.Length
+        }
+        
+        if ($fileSize -lt 100KB) {
+            throw "Download failed: File size too small ($fileSize bytes) after multiple attempts"
+        }
+        
+        Write-Host "  ✓ Downloaded successfully using WebClient" -ForegroundColor Green
     }
     
     # Verify file is a valid PE executable
