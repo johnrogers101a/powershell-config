@@ -29,6 +29,20 @@
         "packageManager": "winget",
         "packageId": "JanDeDobbeleer.OhMyPosh",
         "installArgs": ["-e", "--id", "JanDeDobbeleer.OhMyPosh", "--accept-package-agreements", "--accept-source-agreements"]
+      },
+      {
+        "name": "Visual Studio Code",
+        "command": "code",
+        "packageManager": "winget",
+        "packageId": "Microsoft.VisualStudioCode",
+        "installArgs": ["-e", "--id", "Microsoft.VisualStudioCode", "--accept-package-agreements", "--accept-source-agreements"]
+      },
+      {
+        "name": "Visual Studio Enterprise 2026",
+        "command": "devenv",
+        "packageManager": "winget",
+        "packageId": "Microsoft.VisualStudio.2026.Enterprise",
+        "installArgs": ["-e", "--id", "Microsoft.VisualStudio.2026.Enterprise", "--accept-package-agreements", "--accept-source-agreements"]
       }
     ],
     "macos": [
@@ -55,6 +69,14 @@
         "packageId": "oh-my-posh",
         "installArgs": ["install", "oh-my-posh"],
         "isCask": false
+      },
+      {
+        "name": "Visual Studio Code",
+        "command": "code",
+        "packageManager": "brew",
+        "packageId": "visual-studio-code",
+        "installArgs": ["install", "--cask", "visual-studio-code"],
+        "isCask": true
       }
     ]
   },
