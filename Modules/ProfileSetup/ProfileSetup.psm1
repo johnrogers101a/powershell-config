@@ -163,6 +163,17 @@ function Initialize-PowerShellProfile {
     
     # Set default working directory
     Set-DefaultWorkingDirectory -DefaultPath $DefaultWorkingDirectory
+    
+    # Display loaded custom commands
+    Write-Host ""
+    Write-Host "Custom Commands Available:" -ForegroundColor Cyan
+    Write-Host "  Get-GitBranches           " -NoNewline -ForegroundColor Green
+    Write-Host "- Retrieve all git branches (local and remote)" -ForegroundColor Gray
+    Write-Host "  Set-DefaultWorkingDirectory " -NoNewline -ForegroundColor Green
+    Write-Host "- Navigate to default working directory" -ForegroundColor Gray
+    Write-Host "  Install-ModuleIfMissing   " -NoNewline -ForegroundColor Green
+    Write-Host "- Install PowerShell modules on-demand" -ForegroundColor Gray
+    Write-Host ""
 }
 #endregion
 

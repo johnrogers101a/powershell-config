@@ -117,11 +117,32 @@ class SoftwareInstaller {
 
         # Download Visual Studio 2026 bootstrapper
         $vsBootstrapperUrl = "https://aka.ms/vs/18/release/vs_enterprise.exe"
-        $vsBootstrapperPath = Join-Path $env:TEMP "vs_enterprise.exe"
+        $vsBootstrapperPath = Join-Path $env:TEMP "vs_enterprise_$(Get-Date -Format 'yyyyMMddHHmmss').exe"
         
         try {
             Write-Host "  Downloading Visual Studio installer..." -ForegroundColor Cyan
-            Invoke-WebRequest -Uri $vsBootstrapperUrl -OutFile $vsBootstrapperPath -ErrorAction Stop
+            
+            # Clean up any old installers first
+            Get-ChildItem -Path $env:TEMP -Filter "vs_enterprise*.exe" -ErrorAction SilentlyContinue | 
+                Where-Object { $_.LastWriteTime -lt (Get-Date).AddHours(-1) } |
+                Remove-Item -Force -ErrorAction SilentlyContinue
+            
+            # Download with progress
+            $ProgressPreference = 'SilentlyContinue'
+            Invoke-WebRequest -Uri $vsBootstrapperUrl -OutFile $vsBootstrapperPath -ErrorAction Stop -UseBasicParsing
+            $ProgressPreference = 'Continue'
+            
+            # Verify the download
+            if (-not (Test-Path $vsBootstrapperPath)) {
+                throw "Download failed: Installer file not found"
+            }
+            
+            $fileSize = (Get-Item $vsBootstrapperPath).Length
+            if ($fileSize -lt 1MB) {
+                throw "Download failed: File size too small ($fileSize bytes)"
+            }
+            
+            Write-Host "  ✓ Downloaded installer ($([math]::Round($fileSize/1MB, 2)) MB)" -ForegroundColor Green
             
             # Define all workloads for a complete installation
             $workloads = @(
@@ -158,8 +179,17 @@ class SoftwareInstaller {
             Write-Host "  Installing Visual Studio with all workloads..." -ForegroundColor Cyan
             Write-Host "  (This will run silently in the background)" -ForegroundColor Yellow
             
-            # Run the installer
-            $process = Start-Process -FilePath $vsBootstrapperPath -ArgumentList $installArgs -Wait -PassThru -NoNewWindow
+            # Verify the file is not corrupted before running
+            try {
+                $fileStream = [System.IO.File]::OpenRead($vsBootstrapperPath)
+                $fileStream.Close()
+            }
+            catch {
+                throw "Installer file is corrupted or locked: $($_.Exception.Message)"
+            }
+            
+            # Run the installer with error handling
+            $process = Start-Process -FilePath $vsBootstrapperPath -ArgumentList $installArgs -Wait -PassThru -NoNewWindow -ErrorAction Stop
             
             if ($process.ExitCode -eq 0 -or $process.ExitCode -eq 3010) {
                 Write-Host "  ✓ Visual Studio installed successfully" -ForegroundColor Green
@@ -169,6 +199,7 @@ class SoftwareInstaller {
             }
             else {
                 Write-Host "  ✗ Visual Studio installation failed (Exit code: $($process.ExitCode))" -ForegroundColor Red
+                Write-Host "  Common exit codes: -1 (error), -2147205120 (admin required), 740 (elevation required)" -ForegroundColor Yellow
             }
         }
         catch {
