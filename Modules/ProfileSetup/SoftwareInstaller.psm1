@@ -1,7 +1,7 @@
 using module ./PlatformInfo.psm1
 using module ./PackageManager.psm1
 
-# Module Version: 2.0 - Fixed VS installer with WebClient and UserProfile path
+# Module Version: 3.0 - VS installer using BITS transfer to Desktop
 class SoftwareInstaller {
     [object]$Platform
     [object]$PackageManager
@@ -112,13 +112,13 @@ class SoftwareInstaller {
 
         Write-Host ""
         Write-Host "Installing Visual Studio 2026 Enterprise..." -ForegroundColor Yellow
-        Write-Host "  [SoftwareInstaller v2.0 - WebClient + UserProfile]" -ForegroundColor Gray
+        Write-Host "  [SoftwareInstaller v3.0 - BITS Transfer to Desktop]" -ForegroundColor Gray
         Write-Host "  This may take several minutes..." -ForegroundColor Cyan
 
-        # Download Visual Studio 2026 bootstrapper to user's Downloads folder (more reliable than TEMP)
+        # Download Visual Studio 2026 bootstrapper to Desktop (most reliable location)
         $vsBootstrapperUrl = "https://aka.ms/vs/18/release/vs_enterprise.exe"
-        $downloadsPath = [Environment]::GetFolderPath('UserProfile')
-        $vsBootstrapperPath = Join-Path $downloadsPath "vs_enterprise_installer.exe"
+        $desktopPath = [Environment]::GetFolderPath('Desktop')
+        $vsBootstrapperPath = Join-Path $desktopPath "vs_enterprise_installer.exe"
         
         try {
             # Remove existing installer if present
@@ -131,13 +131,19 @@ class SoftwareInstaller {
             Write-Host "  URL: $vsBootstrapperUrl" -ForegroundColor Gray
             Write-Host "  Destination: $vsBootstrapperPath" -ForegroundColor Gray
             
-            # Download using .NET WebClient for better reliability
-            $webClient = New-Object System.Net.WebClient
-            $webClient.DownloadFile($vsBootstrapperUrl, $vsBootstrapperPath)
-            $webClient.Dispose()
-            
-            # Wait a moment for file system to sync
-            Start-Sleep -Seconds 2
+            # Use Start-BitsTransfer for most reliable download on Windows
+            try {
+                Import-Module BitsTransfer -ErrorAction Stop
+                Start-BitsTransfer -Source $vsBootstrapperUrl -Destination $vsBootstrapperPath -Description "Visual Studio Installer" -ErrorAction Stop
+                Write-Host "  ✓ Downloaded using BITS transfer" -ForegroundColor Green
+            }
+            catch {
+                Write-Host "  BITS transfer unavailable, trying Invoke-WebRequest..." -ForegroundColor Yellow
+                # Fallback to Invoke-WebRequest with proper parameters
+                $ProgressPreference = 'SilentlyContinue'
+                Invoke-WebRequest -Uri $vsBootstrapperUrl -OutFile $vsBootstrapperPath -UseBasicParsing -ErrorAction Stop
+                Write-Host "  ✓ Downloaded using Invoke-WebRequest" -ForegroundColor Green
+            }
             
             # Verify the download completed successfully
             if (-not (Test-Path $vsBootstrapperPath)) {
@@ -157,8 +163,8 @@ class SoftwareInstaller {
                 throw "Downloaded file is not a valid executable (MZ header missing)"
             }
             
-            Write-Host "  ✓ Downloaded installer ($([math]::Round($fileSize/1MB, 2)) MB)" -ForegroundColor Green
-            Write-Host "  ✓ File integrity verified" -ForegroundColor Green
+            Write-Host "  ✓ File size: $([math]::Round($fileSize/1MB, 2)) MB" -ForegroundColor Green
+            Write-Host "  ✓ File integrity verified (valid PE executable)" -ForegroundColor Green
             
             # Define all workloads for a complete installation
             $workloads = @(

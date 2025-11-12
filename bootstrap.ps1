@@ -40,7 +40,7 @@ if ($PSVersionTable.PSVersion.Major -ge 7) {
     Write-Host "Executing installer..." -ForegroundColor Cyan
     Write-Host ""
     Invoke-Expression $installer
-    exit 0
+    return
 }
 #endregion
 
@@ -58,7 +58,7 @@ if ($PSVersionTable.PSVersion.Major -eq 5 -and $null -eq $PSVersionTable.Platfor
     if (-not $winget) {
         Write-Host "✗ winget not found. Please install App Installer from Microsoft Store." -ForegroundColor Red
         Write-Host "  After installing, run this script again." -ForegroundColor Yellow
-        exit 1
+        return
     }
     
     # Check if pwsh is already installed
@@ -78,7 +78,7 @@ if ($PSVersionTable.PSVersion.Major -eq 5 -and $null -eq $PSVersionTable.Platfor
         else {
             Write-Host "✗ Failed to install PowerShell 7+" -ForegroundColor Red
             Write-Host "  Exit code: $LASTEXITCODE" -ForegroundColor Red
-            exit 1
+            return
         }
     }
     
@@ -103,6 +103,6 @@ if ($PSVersionTable.PSVersion.Major -eq 5 -and $null -eq $PSVersionTable.Platfor
 else {
     Write-Host "✗ Unsupported platform or PowerShell version" -ForegroundColor Red
     Write-Host "  This script requires Windows with PowerShell 5.1+ or PowerShell 7+" -ForegroundColor Yellow
-    exit 1
+    return
 }
 #endregion
