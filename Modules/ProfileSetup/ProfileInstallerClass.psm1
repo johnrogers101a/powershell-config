@@ -1,5 +1,6 @@
 using module ./FileManager.psm1
 
+# ProfileInstaller v2.0 - No backups, force overwrite
 class ProfileInstaller {
     [string]$ProfileDir
     [string]$ModulesDir
@@ -16,6 +17,7 @@ class ProfileInstaller {
     [void] Install() {
         Write-Host ""
         Write-Host "Installing profile configuration..." -ForegroundColor Green
+        Write-Host "  [ProfileInstaller v2.0 - No backups, force overwrite]" -ForegroundColor Magenta
         Write-Host "Target Directory: " -NoNewline
         Write-Host $this.ProfileDir -ForegroundColor Yellow
         Write-Host ""

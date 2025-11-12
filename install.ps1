@@ -72,19 +72,26 @@ Write-Host "  ✓ All files downloaded successfully" -ForegroundColor Green
 #region Load and Execute
 Write-Host ""
 Write-Host "Loading installation module..." -ForegroundColor Cyan
+Write-Host "  [Bootstrap v3.0 - Force Module Reload]" -ForegroundColor Magenta
 
 try {
     # Remove any cached versions of the modules first
     $modulePath = Join-Path $TempDir "Modules/ProfileSetup"
     $moduleFiles = Get-ChildItem -Path $modulePath -Filter "*.psm1" | Select-Object -ExpandProperty BaseName
     
+    $removedCount = 0
     foreach ($mod in $moduleFiles) {
         if (Get-Module -Name $mod) {
             Remove-Module -Name $mod -Force -ErrorAction SilentlyContinue
+            $removedCount++
         }
     }
     
-    Write-Host "  Cleared cached modules" -ForegroundColor Gray
+    if ($removedCount -gt 0) {
+        Write-Host "  Cleared $removedCount cached module(s)" -ForegroundColor Yellow
+    } else {
+        Write-Host "  No cached modules found (clean state)" -ForegroundColor Gray
+    }
     
     # Import the main installer module with force reload
     $installerModule = Join-Path $TempDir "Modules/ProfileSetup/Installer.psm1"
