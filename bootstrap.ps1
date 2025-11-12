@@ -19,7 +19,7 @@ $ErrorActionPreference = 'Stop'
 #region Check PowerShell Version
 Write-Host ""
 Write-Host "========================================" -ForegroundColor Cyan
-Write-Host "PowerShell Profile Bootstrap" -ForegroundColor Cyan
+Write-Host "PowerShell Profile Bootstrap v1.0" -ForegroundColor Cyan
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "Current PowerShell version: " -NoNewline
