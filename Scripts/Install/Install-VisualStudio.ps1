@@ -41,12 +41,12 @@ if ($LASTEXITCODE -eq 0 -and $vsCheck -match "Microsoft.VisualStudio.2022.Enterp
 }
 
 Write-Host ""
-Write-Host "Installing Visual Studio 2022 Enterprise..." -ForegroundColor Yellow
+Write-Host "Installing Visual Studio 2026 Enterprise..." -ForegroundColor Yellow
 Write-Host "  This may take several minutes..." -ForegroundColor Cyan
 
-# Download Visual Studio 2022 bootstrapper to Desktop
-# Using direct download URL instead of aka.ms redirect
-$vsBootstrapperUrl = "https://download.visualstudio.microsoft.com/download/pr/69e24482-3b48-44d3-af65-51f866a08313/e2ef8c979864c1e4ee1aadea6ee38f5a87a25e8eadb2b6856c77b94ca59a3bc7/vs_Enterprise.exe"
+# Download Visual Studio 2026 (v18) bootstrapper to Desktop
+# Using aka.ms redirect which should point to latest version
+$vsBootstrapperUrl = "https://aka.ms/vs/18/release/vs_enterprise.exe"
 $desktopPath = [Environment]::GetFolderPath('Desktop')
 $vsBootstrapperPath = Join-Path $desktopPath "vs_enterprise_installer.exe"
 
@@ -61,17 +61,19 @@ try {
     Write-Host "  URL: $vsBootstrapperUrl" -ForegroundColor Gray
     Write-Host "  Destination: $vsBootstrapperPath" -ForegroundColor Gray
     
-    # Use Invoke-WebRequest with proper settings for redirects
+    # Use System.Net.WebClient for most reliable download with automatic redirect handling
     try {
         $ProgressPreference = 'SilentlyContinue'
-        Invoke-WebRequest -Uri $vsBootstrapperUrl -OutFile $vsBootstrapperPath -UseBasicParsing -MaximumRedirection 5 -ErrorAction Stop
-        Write-Host "  ✓ Downloaded using Invoke-WebRequest" -ForegroundColor Green
+        $webClient = New-Object System.Net.WebClient
+        $webClient.Headers.Add("User-Agent", "PowerShell")
+        $webClient.DownloadFile($vsBootstrapperUrl, $vsBootstrapperPath)
+        $webClient.Dispose()
+        Write-Host "  ✓ Downloaded using WebClient" -ForegroundColor Green
     }
     catch {
-        Write-Host "  Trying BITS transfer as fallback..." -ForegroundColor Yellow
-        Import-Module BitsTransfer -ErrorAction Stop
-        Start-BitsTransfer -Source $vsBootstrapperUrl -Destination $vsBootstrapperPath -Description "Visual Studio Installer" -ErrorAction Stop
-        Write-Host "  ✓ Downloaded using BITS transfer" -ForegroundColor Green
+        Write-Host "  Trying Invoke-WebRequest as fallback..." -ForegroundColor Yellow
+        Invoke-WebRequest -Uri $vsBootstrapperUrl -OutFile $vsBootstrapperPath -UseBasicParsing -MaximumRedirection 10 -ErrorAction Stop
+        Write-Host "  ✓ Downloaded using Invoke-WebRequest" -ForegroundColor Green
     }
     
     # Verify download
