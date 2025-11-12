@@ -47,7 +47,7 @@ Write-Host "  This may take several minutes..." -ForegroundColor Cyan
 # Download Visual Studio 2026 Enterprise bootstrapper from Azure Storage
 # Pre-uploaded installer to avoid Microsoft's problematic aka.ms redirects
 $azureBaseUrl = "https://stprofilewus3.blob.core.windows.net/profile-config"
-$vsBootstrapperUrl = "$azureBaseUrl/vs_enterprise.exe"
+$vsBootstrapperUrl = "$azureBaseUrl/VisualStudioSetup.exe"
 $cacheBuster = "?v=$(Get-Date -Format 'yyyyMMddHHmmss')"
 $vsBootstrapperUrl += $cacheBuster
 $desktopPath = [Environment]::GetFolderPath('Desktop')
