@@ -23,7 +23,7 @@ A cross-platform PowerShell profile configuration with custom modules and Oh My 
 
 #### Windows (PowerShell 5.1 or later)
 ```powershell
-irm https://stprofilewus3.blob.core.windows.net/profile-config/bootstrap.ps1 | iex
+iex (irm https://stprofilewus3.blob.core.windows.net/profile-config/bootstrap.ps1)
 ```
 
 **Works on fresh Windows installs!** The bootstrap script will:
@@ -33,7 +33,7 @@ irm https://stprofilewus3.blob.core.windows.net/profile-config/bootstrap.ps1 | i
 
 #### macOS (Terminal - requires PowerShell 7+)
 ```bash
-pwsh -NoProfile -ExecutionPolicy Bypass -Command "irm https://stprofilewus3.blob.core.windows.net/profile-config/install.ps1 | iex"
+pwsh -NoProfile -ExecutionPolicy Bypass -Command "iex (irm https://stprofilewus3.blob.core.windows.net/profile-config/install.ps1)"
 ```
 
 **Don't have PowerShell on macOS?** Install it first:
