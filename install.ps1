@@ -26,7 +26,7 @@ $ErrorActionPreference = 'Stop'
 
 #region Configuration
 $AzureBaseUrl = "https://stprofilewus3.blob.core.windows.net/profile-config"
-$TempDir = Join-Path $env:TEMP "powershell-profile-setup-$(Get-Date -Format 'yyyyMMddHHmmss')"
+$TempDir = Join-Path ([System.IO.Path]::GetTempPath()) "powershell-profile-setup-$(Get-Date -Format 'yyyyMMddHHmmss')"
 
 # Core installation scripts needed for bootstrap
 $ScriptsToDownload = @(
