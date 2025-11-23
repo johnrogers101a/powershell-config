@@ -46,7 +46,7 @@ if (Test-Path $LocalPath) {
 
 # Download from Azure
 Write-Host "Downloading configuration from Azure..." -ForegroundColor Cyan
-$tempConfig = Join-Path $env:TEMP $FileName
+$tempConfig = Join-Path ([System.IO.Path]::GetTempPath()) $FileName
 
 # Download using Get-FileFromAzure script
 $downloadScript = Join-Path $PSScriptRoot "Get-FileFromAzure.ps1"
