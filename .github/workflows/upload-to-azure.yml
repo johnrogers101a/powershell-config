@@ -5,6 +5,10 @@ on:
     branches:
       - main
 
+permissions:
+  contents: read
+  id-token: write
+
 jobs:
   upload:
     runs-on: ubuntu-latest
@@ -26,4 +30,4 @@ jobs:
       - name: Upload files to Azure
         shell: pwsh
         run: |
-          ./upload.ps1
+          ./upload.ps1 -Pipeline

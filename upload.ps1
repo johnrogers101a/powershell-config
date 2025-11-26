@@ -13,9 +13,20 @@
 .PARAMETER ExcludePatterns
     Array of patterns to exclude from upload (default: .git, README.md)
 
+.PARAMETER Force
+    Force upload all files, bypassing MD5 hash comparison
+
+.PARAMETER Pipeline
+    Use login-based authentication for pipeline environments (service principal).
+    By default, uses key-based authentication for local development.
+
 .EXAMPLE
     ./upload.ps1
-    Uploads all repository files to the configured Azure storage account.
+    Uploads all repository files using key-based authentication (local mode).
+
+.EXAMPLE
+    ./upload.ps1 -Pipeline
+    Uploads all repository files using login-based authentication (pipeline mode).
 #>
 
 [CmdletBinding()]
@@ -24,7 +35,10 @@ param(
     [string[]]$ExcludePatterns = @('.git', 'README.md'),
     
     [Parameter()]
-    [switch]$Force
+    [switch]$Force,
+    
+    [Parameter()]
+    [switch]$Pipeline
 )
 
 $ErrorActionPreference = 'Stop'
@@ -93,6 +107,17 @@ if (-not $storageId) {
 Write-Host "  ✓ Storage account found" -ForegroundColor Green
 Write-Host ""
 
+# Determine auth mode based on environment
+Write-Host "Determining authentication mode..." -ForegroundColor Cyan
+if ($Pipeline) {
+    $authMode = "login"
+    Write-Host "  ✓ Using login-based authentication (pipeline mode)" -ForegroundColor Green
+} else {
+    $authMode = "key"
+    Write-Host "  ✓ Using key-based authentication (local mode)" -ForegroundColor Green
+}
+Write-Host ""
+
 # Get script directory (repository root)
 $RepoRoot = $PSScriptRoot
 
@@ -119,22 +144,18 @@ Write-Host ""
 # Fetch all remote blob hashes at once
 if (-not $Force) {
     Write-Host "Fetching remote file hashes..." -ForegroundColor Cyan
-    
-    $attempt = 1
-    $maxAttempts = 2
-    $remoteHashes = $null
-    
-    while ($attempt -le $maxAttempts) {
-        # Run command and capture all output
-        $commandOutput = & {
-            $ErrorActionPreference = 'Continue'
-            az storage blob list `
-                --account-name $StorageAccount `
-                --container-name $ContainerName `
-                --query "[].{name:name, md5:properties.contentSettings.contentMd5}" `
-                --output json `
-                --auth-mode key `
-                --only-show-errors 2>&1
+    try {
+        $remoteBlobs = az storage blob list `
+            --account-name $StorageAccount `
+            --container-name $ContainerName `
+            --query "[].{name:name, md5:properties.contentSettings.contentMd5}" `
+            --output json `
+            --auth-mode $authMode `
+            --only-show-errors 2>$null | ConvertFrom-Json
+            
+        $remoteHashes = @{}
+        foreach ($blob in $remoteBlobs) {
+            $remoteHashes[$blob.name] = $blob.md5
         }
         
         if ($LASTEXITCODE -eq 0) {
@@ -203,7 +224,7 @@ foreach ($file in $allFiles) {
                         --name $relativePath `
                         --query "properties.contentSettings.contentMd5" `
                         --output tsv `
-                        --auth-mode key `
+                        --auth-mode $authMode `
                         --only-show-errors 2>$null
                 }
             }
@@ -235,7 +256,7 @@ foreach ($file in $allFiles) {
                 --name $relativePath `
                 --file $file.FullName `
                 --overwrite `
-                --auth-mode key `
+                --auth-mode $authMode `
                 --only-show-errors 2>&1
         }
         
@@ -283,7 +304,7 @@ $publicAccess = az storage container show `
     --name $ContainerName `
     --query "properties.publicAccess" `
     --output tsv `
-    --auth-mode key 2>$null
+    --auth-mode $authMode 2>$null
 
 if ($publicAccess -eq "blob") {
     Write-Host "  ✓ Container has public blob access enabled" -ForegroundColor Green
