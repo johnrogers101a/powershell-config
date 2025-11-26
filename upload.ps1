@@ -125,7 +125,7 @@ if (-not $Force) {
             --container-name $ContainerName `
             --query "[].{name:name, md5:properties.contentSettings.contentMd5}" `
             --output json `
-            --auth-mode key `
+            --auth-mode login `
             --only-show-errors 2>$null | ConvertFrom-Json
             
         $remoteHashes = @{}
@@ -173,7 +173,7 @@ foreach ($file in $allFiles) {
                         --name $relativePath `
                         --query "properties.contentSettings.contentMd5" `
                         --output tsv `
-                        --auth-mode key `
+                        --auth-mode login `
                         --only-show-errors 2>$null
                 }
             }
@@ -205,7 +205,7 @@ foreach ($file in $allFiles) {
                 --name $relativePath `
                 --file $file.FullName `
                 --overwrite `
-                --auth-mode key `
+                --auth-mode login `
                 --only-show-errors 2>&1
         }
         
@@ -253,7 +253,7 @@ $publicAccess = az storage container show `
     --name $ContainerName `
     --query "properties.publicAccess" `
     --output tsv `
-    --auth-mode key 2>$null
+    --auth-mode login 2>$null
 
 if ($publicAccess -eq "blob") {
     Write-Host "  ✓ Container has public blob access enabled" -ForegroundColor Green
