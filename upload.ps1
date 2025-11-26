@@ -13,9 +13,20 @@
 .PARAMETER ExcludePatterns
     Array of patterns to exclude from upload (default: .git, README.md)
 
+.PARAMETER Force
+    Force upload all files, bypassing MD5 hash comparison
+
+.PARAMETER Pipeline
+    Use login-based authentication for pipeline environments (service principal).
+    By default, uses key-based authentication for local development.
+
 .EXAMPLE
     ./upload.ps1
-    Uploads all repository files to the configured Azure storage account.
+    Uploads all repository files using key-based authentication (local mode).
+
+.EXAMPLE
+    ./upload.ps1 -Pipeline
+    Uploads all repository files using login-based authentication (pipeline mode).
 #>
 
 [CmdletBinding()]
@@ -24,7 +35,10 @@ param(
     [string[]]$ExcludePatterns = @('.git', 'README.md'),
     
     [Parameter()]
-    [switch]$Force
+    [switch]$Force,
+    
+    [Parameter()]
+    [switch]$Pipeline
 )
 
 $ErrorActionPreference = 'Stop'
@@ -93,26 +107,14 @@ if (-not $storageId) {
 Write-Host "  ✓ Storage account found" -ForegroundColor Green
 Write-Host ""
 
-# Determine best auth mode (login for pipelines, try key for local use with fallback to login)
+# Determine auth mode based on environment
 Write-Host "Determining authentication mode..." -ForegroundColor Cyan
-$authMode = "login"
-
-# Try to access storage account keys (will fail if user doesn't have permission)
-$hasKeyAccess = $false
-try {
-    $keys = az storage account keys list --account-name $StorageAccount --query "[0].value" --output tsv 2>$null
-    if ($keys -and $LASTEXITCODE -eq 0) {
-        $hasKeyAccess = $true
-        $authMode = "key"
-        Write-Host "  ✓ Using key-based authentication (local environment)" -ForegroundColor Green
-    }
-}
-catch {
-    # Silently fall through to login mode
-}
-
-if (-not $hasKeyAccess) {
-    Write-Host "  ✓ Using login-based authentication (pipeline/restricted environment)" -ForegroundColor Green
+if ($Pipeline) {
+    $authMode = "login"
+    Write-Host "  ✓ Using login-based authentication (pipeline mode)" -ForegroundColor Green
+} else {
+    $authMode = "key"
+    Write-Host "  ✓ Using key-based authentication (local mode)" -ForegroundColor Green
 }
 Write-Host ""
 

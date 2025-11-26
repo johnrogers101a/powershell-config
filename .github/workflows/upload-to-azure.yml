@@ -30,4 +30,4 @@ jobs:
       - name: Upload files to Azure
         shell: pwsh
         run: |
-          ./upload.ps1
+          ./upload.ps1 -Pipeline
