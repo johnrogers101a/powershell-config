@@ -61,7 +61,7 @@ try {
         }
 
         # 2. Set Font
-        $targetFont = "MesloLGL Nerd Font Mono"
+        $targetFont = "MesloLGM Nerd Font Mono"
         
         # Check if font object exists (newer schema) or fontFace property (older schema)
         if ($pwshProfile | Get-Member -Name "font") {

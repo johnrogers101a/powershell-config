@@ -37,6 +37,9 @@ $ScriptsToDownload = @(
     "Scripts/Install/Install-WithWinGet.ps1"
     "Scripts/Install/Install-WithBrew.ps1"
     "Scripts/Install/Install-Software.ps1"
+    "Scripts/Install/Install-WindowsUpdates.ps1"
+    "Scripts/Install/Set-TimeZone.ps1"
+    "Scripts/Install/Configure-WindowsTerminal.ps1"
     "Scripts/Install/Install-VisualStudio.ps1"
     "Scripts/Install/Install-Fonts.ps1"
     "Scripts/Profile/Install-ProfileFiles.ps1"
@@ -110,6 +113,10 @@ try {
     $installSoftwareScript = Join-Path $scriptsRoot "Install/Install-Software.ps1"
     & $installSoftwareScript -Platform $platform -Config $config -ScriptsRoot $scriptsRoot
     
+    # Install fonts (must be done before configuring terminal)
+    $installFontsScript = Join-Path $scriptsRoot "Install/Install-Fonts.ps1"
+    & $installFontsScript -Config $config
+
     if ($platform.IsWindows) {
         # Install Windows Updates and Store Updates
         $installUpdatesScript = Join-Path $scriptsRoot "Install/Install-WindowsUpdates.ps1"
@@ -127,10 +134,6 @@ try {
     # Install Visual Studio (Windows only)
     $installVSScript = Join-Path $scriptsRoot "Install/Install-VisualStudio.ps1"
     & $installVSScript -Platform $platform
-    
-    # Install fonts
-    $installFontsScript = Join-Path $scriptsRoot "Install/Install-Fonts.ps1"
-    & $installFontsScript -Config $config
     
     # Install profile files
     $installProfileScript = Join-Path $scriptsRoot "Profile/Install-ProfileFiles.ps1"

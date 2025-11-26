@@ -22,6 +22,9 @@ A cross-platform PowerShell profile configuration with custom modules and Oh My 
 > **Note:** Make sure your Azure Blob Storage container has anonymous read access enabled for public installation.
 
 #### Windows (PowerShell 5.1 or later)
+
+> **Important:** Run Windows Terminal as **Administrator** for the installation to succeed.
+
 ```powershell
 iex (irm https://stprofilewus3.blob.core.windows.net/profile-config/bootstrap.ps1)
 ```

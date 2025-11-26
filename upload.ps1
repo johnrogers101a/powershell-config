@@ -21,13 +21,13 @@
 [CmdletBinding()]
 param(
     [Parameter()]
-    [string[]]$ExcludePatterns = @('.git', 'README.md')
+    [string[]]$ExcludePatterns = @('.git', 'README.md'),
+    
+    [Parameter()]
+    [switch]$Force
 )
 
 $ErrorActionPreference = 'Stop'
-
-# Disable SSL verification for Azure CLI to handle corporate proxies
-$env:AZURE_CLI_DISABLE_CONNECTION_VERIFICATION = 1
 
 # Azure Storage configuration
 $StorageAccount = "stprofilewus3"
@@ -116,6 +116,31 @@ $totalFiles = $allFiles.Count
 Write-Host "  Found $totalFiles files to upload" -ForegroundColor Yellow
 Write-Host ""
 
+# Fetch all remote blob hashes at once
+if (-not $Force) {
+    Write-Host "Fetching remote file hashes..." -ForegroundColor Cyan
+    try {
+        $remoteBlobs = az storage blob list `
+            --account-name $StorageAccount `
+            --container-name $ContainerName `
+            --query "[].{name:name, md5:properties.contentSettings.contentMd5}" `
+            --output json `
+            --auth-mode key `
+            --only-show-errors 2>$null | ConvertFrom-Json
+            
+        $remoteHashes = @{}
+        foreach ($blob in $remoteBlobs) {
+            $remoteHashes[$blob.name] = $blob.md5
+        }
+        Write-Host "  ✓ Fetched $($remoteHashes.Count) remote hashes" -ForegroundColor Green
+    }
+    catch {
+        Write-Host "  ⚠ Failed to fetch remote hashes, will check individually: $_" -ForegroundColor Yellow
+        $remoteHashes = $null
+    }
+    Write-Host ""
+}
+
 # Upload each file
 $uploadedCount = 0
 $failedCount = 0
@@ -125,28 +150,87 @@ foreach ($file in $allFiles) {
     # Get relative path for blob name
     $relativePath = $file.FullName.Substring($RepoRoot.Length + 1).Replace('\', '/')
     
+    # Check MD5 if not forced
+    if (-not $Force) {
+        try {
+            # Calculate local MD5
+            $md5 = [System.Security.Cryptography.MD5]::Create()
+            $hash = $md5.ComputeHash([System.IO.File]::ReadAllBytes($file.FullName))
+            $localMd5 = [System.Convert]::ToBase64String($hash)
+
+            # Get remote MD5
+            $remoteMd5 = $null
+            if ($remoteHashes) {
+                $remoteMd5 = $remoteHashes[$relativePath]
+            }
+            else {
+                # Fallback to individual check if bulk fetch failed
+                $remoteMd5 = & {
+                    $ErrorActionPreference = 'SilentlyContinue'
+                    az storage blob show `
+                        --account-name $StorageAccount `
+                        --container-name $ContainerName `
+                        --name $relativePath `
+                        --query "properties.contentSettings.contentMd5" `
+                        --output tsv `
+                        --auth-mode key `
+                        --only-show-errors 2>$null
+                }
+            }
+
+            if ($remoteMd5 -eq $localMd5) {
+                Write-Host "  Skipping $relativePath (unchanged)" -ForegroundColor Gray
+                continue
+            }
+        }
+        catch {
+            # If MD5 check fails, proceed with upload
+            Write-Verbose "Failed to check MD5: $_"
+        }
+    }
+
     Write-Host "  Uploading $relativePath..." -ForegroundColor Cyan
     
-    try {
-        az storage blob upload `
-            --account-name $StorageAccount `
-            --container-name $ContainerName `
-            --name $relativePath `
-            --file $file.FullName `
-            --overwrite `
-            --auth-mode key `
-            --only-show-errors | Out-Null
-        
-        if ($LASTEXITCODE -ne 0) {
-            throw "Azure CLI exited with code $LASTEXITCODE"
+    $attempt = 1
+    $maxAttempts = 2
+
+    while ($attempt -le $maxAttempts) {
+        # Capture output and error stream
+        # Temporarily allow errors so we can capture them
+        $output = & {
+            $ErrorActionPreference = 'Continue'
+            az storage blob upload `
+                --account-name $StorageAccount `
+                --container-name $ContainerName `
+                --name $relativePath `
+                --file $file.FullName `
+                --overwrite `
+                --auth-mode key `
+                --only-show-errors 2>&1
         }
         
-        Write-Host "    ✓ Uploaded successfully" -ForegroundColor Green
-        $uploadedCount++
-    }
-    catch {
-        Write-Host "    ✗ Failed to upload: $_" -ForegroundColor Red
+        if ($LASTEXITCODE -eq 0) {
+            Write-Host "    ✓ Uploaded successfully" -ForegroundColor Green
+            $uploadedCount++
+            break
+        }
+        
+        $errorMsg = $output | Out-String
+        
+        # Check for SSL errors on first attempt if verification is enabled
+        if ($attempt -eq 1 -and -not $env:AZURE_CLI_DISABLE_CONNECTION_VERIFICATION -and 
+            ($errorMsg -match "SSLError" -or $errorMsg -match "CERTIFICATE_VERIFY_FAILED")) {
+            
+            Write-Host "    ⚠ SSL certificate error detected. Retrying with verification disabled..." -ForegroundColor Yellow
+            $env:AZURE_CLI_DISABLE_CONNECTION_VERIFICATION = 1
+            $attempt++
+            continue
+        }
+        
+        # If we get here, it's a non-recoverable error or we already retried
+        Write-Host "    ✗ Failed to upload: $errorMsg" -ForegroundColor Red
         $failedCount++
+        break
     }
 }
 

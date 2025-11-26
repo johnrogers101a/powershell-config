@@ -19,15 +19,9 @@ $ErrorActionPreference = 'Stop'
 $targetTimeZoneId = "Pacific Standard Time"
 
 try {
-    $current = Get-TimeZone
-    
-    if ($current.Id -eq $targetTimeZoneId) {
-        Write-Host "✓ Time zone is already set to $targetTimeZoneId" -ForegroundColor Green
-        return
-    }
-
     Write-Host "Current time zone: $($current.Id)" -ForegroundColor Gray
-    $response = Read-Host "Do you want to set the time zone to $targetTimeZoneId? (y/n)"
+    Write-Host "Do you want to set the time zone to pacific? (y/n): " -NoNewline
+    $response = Read-Host
 
     if ($response -eq 'y') {
         # Check for Administrator privileges
@@ -38,7 +32,7 @@ try {
             return
         }
 
-        Set-TimeZone -Id $targetTimeZoneId
+        Set-TimeZone -Name "Pacific Standard Time"
         Write-Host "✓ Time zone updated to $targetTimeZoneId" -ForegroundColor Green
     }
 } catch {
