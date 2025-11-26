@@ -93,6 +93,29 @@ if (-not $storageId) {
 Write-Host "  ✓ Storage account found" -ForegroundColor Green
 Write-Host ""
 
+# Determine best auth mode (login for pipelines, try key for local use with fallback to login)
+Write-Host "Determining authentication mode..." -ForegroundColor Cyan
+$authMode = "login"
+
+# Try to access storage account keys (will fail if user doesn't have permission)
+$hasKeyAccess = $false
+try {
+    $keys = az storage account keys list --account-name $StorageAccount --query "[0].value" --output tsv 2>$null
+    if ($keys -and $LASTEXITCODE -eq 0) {
+        $hasKeyAccess = $true
+        $authMode = "key"
+        Write-Host "  ✓ Using key-based authentication (local environment)" -ForegroundColor Green
+    }
+}
+catch {
+    # Silently fall through to login mode
+}
+
+if (-not $hasKeyAccess) {
+    Write-Host "  ✓ Using login-based authentication (pipeline/restricted environment)" -ForegroundColor Green
+}
+Write-Host ""
+
 # Get script directory (repository root)
 $RepoRoot = $PSScriptRoot
 
@@ -125,7 +148,7 @@ if (-not $Force) {
             --container-name $ContainerName `
             --query "[].{name:name, md5:properties.contentSettings.contentMd5}" `
             --output json `
-            --auth-mode login `
+            --auth-mode $authMode `
             --only-show-errors 2>$null | ConvertFrom-Json
             
         $remoteHashes = @{}
@@ -173,7 +196,7 @@ foreach ($file in $allFiles) {
                         --name $relativePath `
                         --query "properties.contentSettings.contentMd5" `
                         --output tsv `
-                        --auth-mode login `
+                        --auth-mode $authMode `
                         --only-show-errors 2>$null
                 }
             }
@@ -205,7 +228,7 @@ foreach ($file in $allFiles) {
                 --name $relativePath `
                 --file $file.FullName `
                 --overwrite `
-                --auth-mode login `
+                --auth-mode $authMode `
                 --only-show-errors 2>&1
         }
         
@@ -253,7 +276,7 @@ $publicAccess = az storage container show `
     --name $ContainerName `
     --query "properties.publicAccess" `
     --output tsv `
-    --auth-mode login 2>$null
+    --auth-mode $authMode 2>$null
 
 if ($publicAccess -eq "blob") {
     Write-Host "  ✓ Container has public blob access enabled" -ForegroundColor Green
