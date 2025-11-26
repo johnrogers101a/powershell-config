@@ -119,24 +119,54 @@ Write-Host ""
 # Fetch all remote blob hashes at once
 if (-not $Force) {
     Write-Host "Fetching remote file hashes..." -ForegroundColor Cyan
-    try {
-        $remoteBlobs = az storage blob list `
-            --account-name $StorageAccount `
-            --container-name $ContainerName `
-            --query "[].{name:name, md5:properties.contentSettings.contentMd5}" `
-            --output json `
-            --auth-mode key `
-            --only-show-errors 2>$null | ConvertFrom-Json
-            
-        $remoteHashes = @{}
-        foreach ($blob in $remoteBlobs) {
-            $remoteHashes[$blob.name] = $blob.md5
+    
+    $attempt = 1
+    $maxAttempts = 2
+    $remoteHashes = $null
+    
+    while ($attempt -le $maxAttempts) {
+        # Run command and capture all output
+        $commandOutput = & {
+            $ErrorActionPreference = 'Continue'
+            az storage blob list `
+                --account-name $StorageAccount `
+                --container-name $ContainerName `
+                --query "[].{name:name, md5:properties.contentSettings.contentMd5}" `
+                --output json `
+                --auth-mode key `
+                --only-show-errors 2>&1
         }
-        Write-Host "  ✓ Fetched $($remoteHashes.Count) remote hashes" -ForegroundColor Green
-    }
-    catch {
-        Write-Host "  ⚠ Failed to fetch remote hashes, will check individually: $_" -ForegroundColor Yellow
-        $remoteHashes = $null
+        
+        if ($LASTEXITCODE -eq 0) {
+            try {
+                $remoteBlobs = $commandOutput | ConvertFrom-Json
+                $remoteHashes = @{}
+                if ($remoteBlobs) {
+                    foreach ($blob in $remoteBlobs) {
+                        $remoteHashes[$blob.name] = $blob.md5
+                    }
+                }
+                Write-Host "  ✓ Fetched $($remoteHashes.Count) remote hashes" -ForegroundColor Green
+                break
+            }
+            catch {
+                Write-Warning "Failed to parse JSON output from blob list"
+                break
+            }
+        }
+        
+        $errorMsg = $commandOutput | Out-String
+        
+        if ($attempt -eq 1 -and -not $env:AZURE_CLI_DISABLE_CONNECTION_VERIFICATION -and 
+            ($errorMsg -match "SSLError" -or $errorMsg -match "CERTIFICATE_VERIFY_FAILED")) {
+            Write-Host "  ⚠ SSL certificate error detected. Retrying with verification disabled..." -ForegroundColor Yellow
+            $env:AZURE_CLI_DISABLE_CONNECTION_VERIFICATION = 1
+            $attempt++
+            continue
+        }
+        
+        Write-Host "  ⚠ Failed to fetch remote hashes, will check individually: $errorMsg" -ForegroundColor Yellow
+        break
     }
     Write-Host ""
 }
