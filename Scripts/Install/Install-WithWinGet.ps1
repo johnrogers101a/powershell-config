@@ -45,6 +45,15 @@ if ($InstalledSoftware.ContainsKey($Package.packageId)) {
     return $true
 }
 
+# Check if package is installed using winget list --id
+# This is more robust than parsing the full list
+Write-Host "Checking if $($Package.name) is installed..." -ForegroundColor Gray
+$check = winget list --id $Package.packageId --exact 2>&1
+if ($LASTEXITCODE -eq 0) {
+    Write-Host "✓ $($Package.name) is already installed" -ForegroundColor Green
+    return $true
+}
+
 # Install package
 Write-Host "Installing $($Package.name) via winget..." -ForegroundColor Yellow
 $output = & winget @($Package.installArgs) 2>&1

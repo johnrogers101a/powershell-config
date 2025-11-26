@@ -77,6 +77,22 @@ if (Test-Path $OhMyPoshConfig) {
 $setDirScript = Join-Path $ProfileScriptsDir "Set-DefaultWorkingDirectory.ps1"
 & $setDirScript -DefaultPath $DefaultWorkingDirectory
 
+# Define custom commands as functions
+function Get-GitBranches {
+    $scriptPath = Join-Path $PSScriptRoot "Get-GitBranches.ps1"
+    & $scriptPath @args
+}
+
+function Set-DefaultWorkingDirectory {
+    $scriptPath = Join-Path $PSScriptRoot "Set-DefaultWorkingDirectory.ps1"
+    & $scriptPath @args
+}
+
+function Install-ModuleIfMissing {
+    $scriptPath = Join-Path $PSScriptRoot "Install-ModuleIfMissing.ps1"
+    & $scriptPath @args
+}
+
 # Display loaded custom commands
 Write-Host ""
 Write-Host "Custom Commands Available:" -ForegroundColor Cyan

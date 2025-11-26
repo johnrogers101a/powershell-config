@@ -26,9 +26,13 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
+# Disable SSL verification for Azure CLI to handle corporate proxies
+$env:AZURE_CLI_DISABLE_CONNECTION_VERIFICATION = 1
+
 # Azure Storage configuration
 $StorageAccount = "stprofilewus3"
 $ContainerName = "profile-config"
+$SubscriptionId = "230b4919-042f-4736-baaf-16091a325dd3" # 4JS
 
 Write-Host ""
 Write-Host "Azure Blob Storage Upload Script" -ForegroundColor Cyan
@@ -38,6 +42,8 @@ Write-Host "Storage Account: " -NoNewline
 Write-Host $StorageAccount -ForegroundColor Yellow
 Write-Host "Container: " -NoNewline
 Write-Host $ContainerName -ForegroundColor Yellow
+Write-Host "Subscription: " -NoNewline
+Write-Host $SubscriptionId -ForegroundColor Yellow
 Write-Host ""
 
 # Check if Azure CLI is installed
@@ -58,6 +64,33 @@ if (-not $account) {
 
 Write-Host "  ✓ Authenticated as: " -NoNewline -ForegroundColor Green
 Write-Host $account.user.name -ForegroundColor White
+Write-Host ""
+
+# Set the correct subscription
+Write-Host "Setting Azure subscription context..." -ForegroundColor Cyan
+try {
+    az account set --subscription $SubscriptionId
+    Write-Host "  ✓ Subscription set to 4JS ($SubscriptionId)" -ForegroundColor Green
+}
+catch {
+    Write-Host "  ✗ Failed to set subscription: $_" -ForegroundColor Red
+    exit 1
+}
+Write-Host ""
+
+# Check if storage account exists and is accessible
+Write-Host "Checking access to storage account '$StorageAccount'..." -ForegroundColor Cyan
+$storageId = az storage account show --name $StorageAccount --query id --output tsv 2>$null
+
+if (-not $storageId) {
+    Write-Host "Error: Storage account '$StorageAccount' not found in current subscriptions." -ForegroundColor Red
+    Write-Host "Current user: $($account.user.name)" -ForegroundColor Yellow
+    Write-Host "Please login to the account/tenant that owns this storage account." -ForegroundColor Yellow
+    Write-Host "Command: az login" -ForegroundColor White
+    exit 1
+}
+
+Write-Host "  ✓ Storage account found" -ForegroundColor Green
 Write-Host ""
 
 # Get script directory (repository root)
@@ -103,6 +136,10 @@ foreach ($file in $allFiles) {
             --overwrite `
             --auth-mode key `
             --only-show-errors | Out-Null
+        
+        if ($LASTEXITCODE -ne 0) {
+            throw "Azure CLI exited with code $LASTEXITCODE"
+        }
         
         Write-Host "    ✓ Uploaded successfully" -ForegroundColor Green
         $uploadedCount++

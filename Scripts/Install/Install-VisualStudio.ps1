@@ -1,22 +1,19 @@
 #!/usr/bin/env pwsh
 <#
 .SYNOPSIS
-    Installs Visual Studio 2026 Enterprise on Windows with all workloads.
+    Installs Visual Studio 2026 Enterprise on Windows.
 
 .DESCRIPTION
-    Checks if Visual Studio is already installed (idempotent).
-    Downloads bootstrapper using BITS transfer to Desktop for reliability.
-    Installs silently with comprehensive workload selection.
-    Windows only - returns early on other platforms.
+    Checks for existing Visual Studio installations.
+    If VS 2022 is found, offers to upgrade to VS 2026 migrating workloads.
+    If no VS is found, installs VS 2026 with default workloads.
+    Uses winget for installation.
 
 .PARAMETER Platform
     Platform object with IsWindows property
 
 .EXAMPLE
     & "$PSScriptRoot/Install-VisualStudio.ps1" -Platform $platform
-
-.OUTPUTS
-    None (prints status to console)
 #>
 
 [CmdletBinding()]
@@ -32,151 +29,108 @@ if (-not $Platform.IsWindows) {
     return
 }
 
-# Check if Visual Studio is already installed (idempotency)
-Write-Host "Checking for Visual Studio installation..." -ForegroundColor Cyan
-$vsCheck = winget list --id Microsoft.VisualStudio.2022.Enterprise 2>$null
-if ($LASTEXITCODE -eq 0 -and $vsCheck -match "Microsoft.VisualStudio.2022.Enterprise") {
-    Write-Host "✓ Visual Studio is already installed" -ForegroundColor Green
+# Helper to get vswhere path
+function Get-VsWherePath {
+    $path = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+    if (Test-Path $path) { return $path }
+    $path = "${env:ProgramFiles}\Microsoft Visual Studio\Installer\vswhere.exe"
+    if (Test-Path $path) { return $path }
+    return $null
+}
+
+# Helper to get installed workloads from VS 2022
+function Get-InstalledWorkloads {
+    $vswhere = Get-VsWherePath
+    if (-not $vswhere) { return @() }
+    
+    try {
+        # Target VS 2022 specifically
+        $json = & $vswhere -products Microsoft.VisualStudio.Product.Enterprise -version "[17.0,18.0)" -format json | ConvertFrom-Json
+        
+        if ($json) {
+            # Handle array (multiple instances) or single object
+            $instance = if ($json -is [array]) { $json[0] } else { $json }
+            
+            if ($instance.workloads) {
+                # Extract just the IDs
+                return $instance.workloads | ForEach-Object { $_.id }
+            }
+        }
+    } catch {
+        Write-Warning "Failed to retrieve existing workloads: $_"
+    }
+    return @()
+}
+
+# Default workloads for fresh install
+$defaultWorkloads = @(
+    "Microsoft.VisualStudio.Workload.NetWeb",
+    "Microsoft.VisualStudio.Workload.Azure",
+    "Microsoft.VisualStudio.Workload.Node",
+    "Microsoft.VisualStudio.Workload.ManagedDesktop",
+    "Microsoft.VisualStudio.Workload.Universal"
+)
+
+# Check for VS 2026 (Microsoft.VisualStudio.Enterprise)
+Write-Host "Checking for Visual Studio 2026..." -ForegroundColor Cyan
+$vs2026 = winget list --id Microsoft.VisualStudio.Enterprise --exact 2>$null
+if ($LASTEXITCODE -eq 0) {
+    Write-Host "✓ Visual Studio 2026 is already installed" -ForegroundColor Green
     return
 }
 
-Write-Host ""
-Write-Host "Installing Visual Studio 2026 Enterprise..." -ForegroundColor Yellow
-Write-Host "  This may take several minutes..." -ForegroundColor Cyan
+# Check for VS 2022 (Microsoft.VisualStudio.2022.Enterprise)
+Write-Host "Checking for Visual Studio 2022..." -ForegroundColor Cyan
+$vs2022 = winget list --id Microsoft.VisualStudio.2022.Enterprise --exact 2>$null
+$vs2022Installed = ($LASTEXITCODE -eq 0)
 
-# Download Visual Studio 2026 Enterprise bootstrapper from Azure Storage
-# Pre-uploaded installer to avoid Microsoft's problematic aka.ms redirects
-$azureBaseUrl = "https://stprofilewus3.blob.core.windows.net/profile-config"
-$vsBootstrapperUrl = "$azureBaseUrl/VisualStudioSetup.exe"
-$cacheBuster = "?v=$(Get-Date -Format 'yyyyMMddHHmmss')"
-$vsBootstrapperUrl += $cacheBuster
-$desktopPath = [Environment]::GetFolderPath('Desktop')
-$vsBootstrapperPath = Join-Path $desktopPath "vs_enterprise_installer.exe"
+$workloadsToInstall = $defaultWorkloads
+$shouldInstall = $true
 
-try {
-    # Remove existing installer if present
-    if (Test-Path $vsBootstrapperPath) {
-        Write-Host "  Removing existing installer..." -ForegroundColor Cyan
-        Remove-Item $vsBootstrapperPath -Force -ErrorAction Stop
-    }
+if ($vs2022Installed) {
+    Write-Host "Found Visual Studio 2022." -ForegroundColor Yellow
     
-    Write-Host "  Downloading Visual Studio 2026 Enterprise installer from Azure..." -ForegroundColor Cyan
-    
-    try {
-        # Download from Azure Blob Storage (no redirect issues)
-        Invoke-WebRequest -Uri $vsBootstrapperUrl `
-            -OutFile $vsBootstrapperPath `
-            -UserAgent "PowerShell" `
-            -ErrorAction Stop
+    $response = Read-Host "Upgrade to Visual Studio 2026 and migrate workloads? (y/n)"
+    if ($response -eq 'y') {
+        # Capture workloads BEFORE uninstalling
+        $migratedWorkloads = Get-InstalledWorkloads
         
-        # Validate the download
-        if (-not (Test-Path $vsBootstrapperPath)) {
-            throw "Download failed: Installer file not found at $vsBootstrapperPath"
+        if ($migratedWorkloads.Count -eq 0) {
+            Write-Warning "Could not detect existing workloads. Falling back to default profile workloads."
+            $workloadsToInstall = $defaultWorkloads
+        } else {
+            Write-Host "Detected $($migratedWorkloads.Count) workloads to migrate." -ForegroundColor Cyan
+            $workloadsToInstall = $migratedWorkloads
         }
+
+        Write-Host "Uninstalling Visual Studio 2022..." -ForegroundColor Yellow
+        winget uninstall --id Microsoft.VisualStudio.2022.Enterprise --silent --accept-source-agreements
         
-        $fileInfo = Get-Item $vsBootstrapperPath
-        $fileSize = $fileInfo.Length
-        
-        Write-Host "  Downloaded $([math]::Round($fileSize/1MB, 2)) MB" -ForegroundColor Cyan
-        
-        # Check if file is a valid executable (MZ header)
-        $bytes = [System.IO.File]::ReadAllBytes($vsBootstrapperPath)
-        if ($bytes.Length -lt 2 -or $bytes[0] -ne 0x4D -or $bytes[1] -ne 0x5A) {
-            throw "Downloaded file is not a valid executable (missing MZ header)"
+    } else {
+        $response = Read-Host "Install Visual Studio 2026 with NO workloads (base install)? (y/n)"
+        if ($response -eq 'y') {
+            $workloadsToInstall = @()
+        } else {
+            $shouldInstall = $false
         }
-        
-        Write-Host "  ✓ Installer downloaded and verified successfully" -ForegroundColor Green
-    }
-    catch {
-        Write-Host "  Download failed: $_" -ForegroundColor Red
-        throw "Failed to download Visual Studio installer from Azure Storage"
-    }
-    
-    # Define workloads for API/Azure development
-    $workloads = @(
-        "Microsoft.VisualStudio.Workload.NetWeb"          # ASP.NET and web development
-        "Microsoft.VisualStudio.Workload.Azure"           # Azure development
-        "Microsoft.VisualStudio.Workload.Node"            # Node.js development
-        "Microsoft.VisualStudio.Workload.ManagedDesktop"  # .NET desktop development (WPF, WinForms, console apps)
-        "Microsoft.VisualStudio.Workload.Universal"       # WinUI application development
-    )
-    
-    # Install base product first, then workloads
-    Write-Host ""
-    Write-Host "  Phase 1: Installing Visual Studio 2026 Enterprise base..." -ForegroundColor Cyan
-    $baseInstallStart = Get-Date
-    
-    $baseInstallArgs = @(
-        "--quiet"
-        "--norestart"
-        "--wait"
-        "--nocache"
-    )
-    
-    $baseProcess = Start-Process -FilePath $vsBootstrapperPath -ArgumentList $baseInstallArgs -Wait -PassThru -NoNewWindow -ErrorAction Stop
-    $baseInstallEnd = Get-Date
-    $baseInstallDuration = ($baseInstallEnd - $baseInstallStart).TotalSeconds
-    
-    if ($baseProcess.ExitCode -eq 0 -or $baseProcess.ExitCode -eq 3010) {
-        Write-Host "  ✓ Base installation completed in $([math]::Round($baseInstallDuration, 1)) seconds" -ForegroundColor Green
-    }
-    else {
-        Write-Host "  ✗ Base installation failed (Exit code: $($baseProcess.ExitCode))" -ForegroundColor Red
-        throw "Base installation failed"
-    }
-    
-    # Install workloads one by one with progress reporting
-    Write-Host ""
-    Write-Host "  Phase 2: Installing workloads..." -ForegroundColor Cyan
-    $workloadNumber = 0
-    $totalWorkloads = $workloads.Count
-    
-    foreach ($workload in $workloads) {
-        $workloadNumber++
-        $workloadName = $workload -replace '^Microsoft\.VisualStudio\.Workload\.', ''
-        
-        Write-Host "  [$workloadNumber/$totalWorkloads] Installing $workloadName..." -ForegroundColor Yellow
-        $workloadStart = Get-Date
-        
-        $workloadArgs = @(
-            "modify"
-            "--installPath"
-            "C:\Program Files\Microsoft Visual Studio\2022\Enterprise"
-            "--quiet"
-            "--norestart"
-            "--wait"
-            "--add"
-            $workload
-        )
-        
-        $workloadProcess = Start-Process -FilePath $vsBootstrapperPath -ArgumentList $workloadArgs -Wait -PassThru -NoNewWindow -ErrorAction Stop
-        $workloadEnd = Get-Date
-        $workloadDuration = ($workloadEnd - $workloadStart).TotalSeconds
-        
-        if ($workloadProcess.ExitCode -eq 0 -or $workloadProcess.ExitCode -eq 3010) {
-            Write-Host "    ✓ $workloadName completed in $([math]::Round($workloadDuration, 1)) seconds" -ForegroundColor Green
-        }
-        else {
-            Write-Host "    ✗ $workloadName failed (Exit code: $($workloadProcess.ExitCode))" -ForegroundColor Red
-        }
-    }
-    
-    Write-Host ""
-    Write-Host "  ✓ Visual Studio 2026 Enterprise installation completed" -ForegroundColor Green
-    if ($baseProcess.ExitCode -eq 3010) {
-        Write-Host "  Note: A restart may be required to complete the installation" -ForegroundColor Yellow
     }
 }
-catch {
-    Write-Host "  ✗ Failed to install Visual Studio: $($_.Exception.Message)" -ForegroundColor Red
-    Write-Host "  Installer location: $vsBootstrapperPath" -ForegroundColor Yellow
-    Write-Host "  You can try running the installer manually if needed" -ForegroundColor Yellow
-}
-finally {
-    # Clean up installer
-    if (Test-Path $vsBootstrapperPath) {
-        Write-Host "  Cleaning up installer..." -ForegroundColor Cyan
-        Start-Sleep -Seconds 1
-        Remove-Item $vsBootstrapperPath -Force -ErrorAction SilentlyContinue
+
+if ($shouldInstall) {
+    Write-Host "Installing Visual Studio 2026..." -ForegroundColor Cyan
+    
+    $installArgs = "--quiet --wait --norestart"
+    foreach ($wl in $workloadsToInstall) {
+        $installArgs += " --add $wl"
+    }
+    
+    # Winget override requires the args to be passed as a single string
+    winget install --id Microsoft.VisualStudio.Enterprise --silent --accept-package-agreements --accept-source-agreements --override "$installArgs"
+    
+    if ($LASTEXITCODE -eq 0) {
+        Write-Host "✓ Visual Studio 2026 installed successfully" -ForegroundColor Green
+    } else {
+        Write-Host "✗ Installation failed with exit code $LASTEXITCODE" -ForegroundColor Red
     }
 }
+

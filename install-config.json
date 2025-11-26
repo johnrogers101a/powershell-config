@@ -26,28 +26,28 @@
         "command": "pwsh",
         "packageManager": "winget",
         "packageId": "Microsoft.PowerShell",
-        "installArgs": ["-e", "--id", "Microsoft.PowerShell", "--silent", "--accept-package-agreements", "--accept-source-agreements"]
+        "installArgs": ["install", "-e", "--id", "Microsoft.PowerShell", "--silent", "--accept-package-agreements", "--accept-source-agreements"]
       },
       {
         "name": "Git",
         "command": "git",
         "packageManager": "winget",
         "packageId": "Git.Git",
-        "installArgs": ["-e", "--id", "Git.Git", "--silent", "--accept-package-agreements", "--accept-source-agreements"]
+        "installArgs": ["install", "-e", "--id", "Git.Git", "--silent", "--accept-package-agreements", "--accept-source-agreements"]
       },
       {
         "name": "Oh My Posh",
         "command": "oh-my-posh",
         "packageManager": "winget",
         "packageId": "JanDeDobbeleer.OhMyPosh",
-        "installArgs": ["-e", "--id", "JanDeDobbeleer.OhMyPosh", "--silent", "--accept-package-agreements", "--accept-source-agreements"]
+        "installArgs": ["install", "-e", "--id", "JanDeDobbeleer.OhMyPosh", "--silent", "--accept-package-agreements", "--accept-source-agreements"]
       },
       {
         "name": "Visual Studio Code",
         "command": "code",
         "packageManager": "winget",
         "packageId": "Microsoft.VisualStudioCode",
-        "installArgs": ["-e", "--id", "Microsoft.VisualStudioCode", "--silent", "--accept-package-agreements", "--accept-source-agreements"]
+        "installArgs": ["install", "-e", "--id", "Microsoft.VisualStudioCode", "--silent", "--accept-package-agreements", "--accept-source-agreements"]
       }
     ],
     "macos": [

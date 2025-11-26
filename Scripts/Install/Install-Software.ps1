@@ -53,15 +53,9 @@ Write-Host ""
 # Get list of installed software once
 $installedSoftware = @{}
 if ($Platform.IsWindows) {
-    Write-Host "Getting installed software list (winget)..." -ForegroundColor Cyan
-    $wingetList = winget list 2>$null
-    foreach ($line in $wingetList) {
-        # Parse winget list output - each installed package has its ID
-        if ($line -match '^\s*(.+?)\s+([^\s]+)\s+([^\s]+)\s*$') {
-            $installedSoftware[$matches[2].Trim()] = $true
-        }
-    }
-    Write-Host "  Found $($installedSoftware.Count) installed packages" -ForegroundColor Green
+    # We will check each package individually in Install-WithWinGet.ps1
+    # because parsing 'winget list' output is fragile due to variable column widths and spaces in names.
+    Write-Host "Using direct package checks for Windows..." -ForegroundColor Cyan
 } else {
     Write-Host "Getting installed software list (brew)..." -ForegroundColor Cyan
     $brewList = brew list 2>$null
@@ -82,5 +76,5 @@ $installerScript = if ($Platform.IsWindows) {
 
 # Install each package
 foreach ($package in $softwareList) {
-    & $installerScript -Package $package -InstalledSoftware $installedSoftware
+    $null = & $installerScript -Package $package -InstalledSoftware $installedSoftware
 }
