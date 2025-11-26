@@ -157,11 +157,37 @@ if (-not $Force) {
         foreach ($blob in $remoteBlobs) {
             $remoteHashes[$blob.name] = $blob.md5
         }
-        Write-Host "  ✓ Fetched $($remoteHashes.Count) remote hashes" -ForegroundColor Green
-    }
-    catch {
-        Write-Host "  ⚠ Failed to fetch remote hashes, will check individually: $_" -ForegroundColor Yellow
-        $remoteHashes = $null
+        
+        if ($LASTEXITCODE -eq 0) {
+            try {
+                $remoteBlobs = $commandOutput | ConvertFrom-Json
+                $remoteHashes = @{}
+                if ($remoteBlobs) {
+                    foreach ($blob in $remoteBlobs) {
+                        $remoteHashes[$blob.name] = $blob.md5
+                    }
+                }
+                Write-Host "  ✓ Fetched $($remoteHashes.Count) remote hashes" -ForegroundColor Green
+                break
+            }
+            catch {
+                Write-Warning "Failed to parse JSON output from blob list"
+                break
+            }
+        }
+        
+        $errorMsg = $commandOutput | Out-String
+        
+        if ($attempt -eq 1 -and -not $env:AZURE_CLI_DISABLE_CONNECTION_VERIFICATION -and 
+            ($errorMsg -match "SSLError" -or $errorMsg -match "CERTIFICATE_VERIFY_FAILED")) {
+            Write-Host "  ⚠ SSL certificate error detected. Retrying with verification disabled..." -ForegroundColor Yellow
+            $env:AZURE_CLI_DISABLE_CONNECTION_VERIFICATION = 1
+            $attempt++
+            continue
+        }
+        
+        Write-Host "  ⚠ Failed to fetch remote hashes, will check individually: $errorMsg" -ForegroundColor Yellow
+        break
     }
     Write-Host ""
 }
