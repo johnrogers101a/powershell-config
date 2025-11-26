@@ -11,6 +11,9 @@
     "Scripts/Install/Install-WithWinGet.ps1",
     "Scripts/Install/Install-WithBrew.ps1",
     "Scripts/Install/Install-Software.ps1",
+    "Scripts/Install/Install-WindowsUpdates.ps1",
+    "Scripts/Install/Set-TimeZone.ps1",
+    "Scripts/Install/Configure-WindowsTerminal.ps1",
     "Scripts/Install/Install-VisualStudio.ps1",
     "Scripts/Install/Install-Fonts.ps1",
     "Scripts/Profile/Install-ProfileFiles.ps1",
@@ -26,28 +29,28 @@
         "command": "pwsh",
         "packageManager": "winget",
         "packageId": "Microsoft.PowerShell",
-        "installArgs": ["install", "-e", "--id", "Microsoft.PowerShell", "--silent", "--accept-package-agreements", "--accept-source-agreements"]
+        "installArgs": ["install", "-e", "--id", "Microsoft.PowerShell", "--silent", "--accept-package-agreements", "--accept-source-agreements", "--source", "winget"]
       },
       {
         "name": "Git",
         "command": "git",
         "packageManager": "winget",
         "packageId": "Git.Git",
-        "installArgs": ["install", "-e", "--id", "Git.Git", "--silent", "--accept-package-agreements", "--accept-source-agreements"]
+        "installArgs": ["install", "-e", "--id", "Git.Git", "--silent", "--accept-package-agreements", "--accept-source-agreements", "--source", "winget"]
       },
       {
         "name": "Oh My Posh",
         "command": "oh-my-posh",
         "packageManager": "winget",
         "packageId": "JanDeDobbeleer.OhMyPosh",
-        "installArgs": ["install", "-e", "--id", "JanDeDobbeleer.OhMyPosh", "--silent", "--accept-package-agreements", "--accept-source-agreements"]
+        "installArgs": ["install", "-e", "--id", "JanDeDobbeleer.OhMyPosh", "--silent", "--accept-package-agreements", "--accept-source-agreements", "--source", "winget"]
       },
       {
         "name": "Visual Studio Code",
         "command": "code",
         "packageManager": "winget",
         "packageId": "Microsoft.VisualStudioCode",
-        "installArgs": ["install", "-e", "--id", "Microsoft.VisualStudioCode", "--silent", "--accept-package-agreements", "--accept-source-agreements"]
+        "installArgs": ["install", "-e", "--id", "Microsoft.VisualStudioCode", "--silent", "--accept-package-agreements", "--accept-source-agreements", "--source", "winget"]
       }
     ],
     "macos": [

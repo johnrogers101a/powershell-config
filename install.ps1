@@ -110,6 +110,20 @@ try {
     $installSoftwareScript = Join-Path $scriptsRoot "Install/Install-Software.ps1"
     & $installSoftwareScript -Platform $platform -Config $config -ScriptsRoot $scriptsRoot
     
+    if ($platform.IsWindows) {
+        # Install Windows Updates and Store Updates
+        $installUpdatesScript = Join-Path $scriptsRoot "Install/Install-WindowsUpdates.ps1"
+        & $installUpdatesScript
+
+        # Set Time Zone
+        $setTimeZoneScript = Join-Path $scriptsRoot "Install/Set-TimeZone.ps1"
+        & $setTimeZoneScript
+
+        # Configure Windows Terminal
+        $configureWTScript = Join-Path $scriptsRoot "Install/Configure-WindowsTerminal.ps1"
+        & $configureWTScript
+    }
+
     # Install Visual Studio (Windows only)
     $installVSScript = Join-Path $scriptsRoot "Install/Install-VisualStudio.ps1"
     & $installVSScript -Platform $platform

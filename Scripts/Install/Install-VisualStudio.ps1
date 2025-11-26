@@ -125,7 +125,7 @@ if ($shouldInstall) {
     }
     
     # Winget override requires the args to be passed as a single string
-    winget install --id Microsoft.VisualStudio.Enterprise --silent --accept-package-agreements --accept-source-agreements --override "$installArgs"
+    winget install --id Microsoft.VisualStudio.Enterprise --silent --accept-package-agreements --accept-source-agreements --source winget --override "$installArgs"
     
     if ($LASTEXITCODE -eq 0) {
         Write-Host "✓ Visual Studio 2026 installed successfully" -ForegroundColor Green

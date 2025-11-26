@@ -27,5 +27,16 @@ param(
 $ErrorActionPreference = 'Stop'
 
 if ((Get-Location).Path -eq $HOME) {
-    Set-Location -Path $DefaultPath
+    # Resolve the full path to ensure consistency
+    $resolvedPath = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($DefaultPath)
+    
+    # Create directory if it doesn't exist
+    if (-not (Test-Path $resolvedPath)) {
+        Write-Host "Creating default working directory: $resolvedPath" -ForegroundColor Gray
+        New-Item -ItemType Directory -Path $resolvedPath -Force | Out-Null
+    }
+    
+    if (Test-Path $resolvedPath) {
+        Set-Location -Path $resolvedPath
+    }
 }

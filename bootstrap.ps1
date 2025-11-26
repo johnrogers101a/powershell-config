@@ -70,7 +70,7 @@ if ($PSVersionTable.PSVersion.Major -eq 5 -and $null -eq $PSVersionTable.Platfor
         Write-Host "Installing PowerShell 7+..." -ForegroundColor Yellow
         Write-Host "  This may take a moment..." -ForegroundColor Gray
         
-        winget install --id Microsoft.PowerShell --exact --silent --accept-package-agreements --accept-source-agreements 2>&1 | Out-Null
+        winget install --id Microsoft.PowerShell --exact --silent --accept-package-agreements --accept-source-agreements --source winget 2>&1 | Out-Null
         
         if ($LASTEXITCODE -eq 0) {
             Write-Host "✓ PowerShell 7+ installed successfully" -ForegroundColor Green
@@ -86,6 +86,16 @@ if ($PSVersionTable.PSVersion.Major -eq 5 -and $null -eq $PSVersionTable.Platfor
     Write-Host "Launching installer in PowerShell 7+..." -ForegroundColor Cyan
     Write-Host ""
     
+    # Determine pwsh path (PATH isn't updated in current session yet)
+    $pwshPath = "pwsh"
+    $potentialPath = "$env:ProgramFiles\PowerShell\7\pwsh.exe"
+    if (Test-Path $potentialPath) {
+        $pwshPath = $potentialPath
+    } else {
+        # Try to refresh PATH from registry if standard path not found
+        $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
+    }
+
     # Launch pwsh with the main installer using cache buster
     $cacheBuster = "v=$([DateTimeOffset]::UtcNow.ToUnixTimeSeconds())"
     $installerUrl = "https://stprofilewus3.blob.core.windows.net/profile-config/install.ps1?$cacheBuster"
@@ -94,7 +104,7 @@ if ($PSVersionTable.PSVersion.Major -eq 5 -and $null -eq $PSVersionTable.Platfor
     $pwshCommand = "`$wc = New-Object System.Net.WebClient; `$wc.CachePolicy = New-Object System.Net.Cache.RequestCachePolicy([System.Net.Cache.RequestCacheLevel]::NoCacheNoStore); iex (`$wc.DownloadString('$installerUrl'))"
     
     # Start pwsh in a new process
-    Start-Process -FilePath "pwsh" -ArgumentList "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", $pwshCommand -Wait -NoNewWindow
+    Start-Process -FilePath $pwshPath -ArgumentList "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", $pwshCommand -Wait -NoNewWindow
     
     Write-Host ""
     Write-Host "Installation complete!" -ForegroundColor Green
