@@ -119,10 +119,14 @@ if ($vs2022Installed) {
 if ($shouldInstall) {
     Write-Host "Installing Visual Studio 2026..." -ForegroundColor Cyan
     
-    $installArgs = "--quiet --wait --norestart"
+    # Use --passive instead of --quiet to avoid potential crashes with silent install
+    # Remove --wait as winget handles the process wait
+    $installArgs = "--passive --norestart"
     foreach ($wl in $workloadsToInstall) {
         $installArgs += " --add $wl"
     }
+    
+    Write-Host "  Command: winget install --id Microsoft.VisualStudio.Enterprise --override `"$installArgs`"" -ForegroundColor Gray
     
     # Winget override requires the args to be passed as a single string
     winget install --id Microsoft.VisualStudio.Enterprise --silent --accept-package-agreements --accept-source-agreements --source winget --override "$installArgs"
@@ -131,6 +135,7 @@ if ($shouldInstall) {
         Write-Host "✓ Visual Studio 2026 installed successfully" -ForegroundColor Green
     } else {
         Write-Host "✗ Installation failed with exit code $LASTEXITCODE" -ForegroundColor Red
+        Write-Host "  Try running the command manually to see more details." -ForegroundColor Yellow
     }
 }
 

@@ -41,9 +41,12 @@ try {
     $jsonContent = Get-Content -Path $settingsFile -Raw
     $settings = $jsonContent | ConvertFrom-Json
 
+    # Handle both new (profiles.list) and old (profiles array) schemas
+    $profilesList = if ($settings.profiles.list) { $settings.profiles.list } else { $settings.profiles }
+
     # Find PowerShell 7 profile GUID
     # We look for "pwsh.exe" or name "PowerShell" (not "Windows PowerShell")
-    $pwshProfile = $settings.profiles.list | Where-Object { 
+    $pwshProfile = $profilesList | Where-Object { 
         ($_.commandline -like "*pwsh.exe*") -or ($_.name -eq "PowerShell") 
     } | Select-Object -First 1
 
@@ -94,7 +97,23 @@ try {
         }
     } else {
         Write-Warning "PowerShell 7 profile not found in Windows Terminal settings."
+        Write-Host "Available profiles:" -ForegroundColor Gray
+        $profilesList | ForEach-Object { Write-Host "  - $($_.name) ($($_.commandline))" -ForegroundColor Gray }
     }
+
+    # 3. Set Default Terminal Application (Registry)
+    Write-Host "Setting Windows Terminal as default terminal application..." -ForegroundColor Cyan
+    $regPath = "HKCU:\Console\%%Startup"
+    if (-not (Test-Path $regPath)) {
+        New-Item -Path $regPath -Force | Out-Null
+    }
+
+    # GUID for Windows Terminal
+    $wtGuid = "{2EACA947-7F5F-4CFA-BA87-8F7FBEEF33F3}"
+    
+    Set-ItemProperty -Path $regPath -Name "DelegationConsole" -Value $wtGuid -Type String
+    Set-ItemProperty -Path $regPath -Name "DelegationTerminal" -Value $wtGuid -Type String
+    Write-Host "✓ Windows Terminal set as default terminal application" -ForegroundColor Green
 
 } catch {
     Write-Host "✗ Failed to update Windows Terminal settings: $_" -ForegroundColor Red
