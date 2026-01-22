@@ -14,13 +14,23 @@
     - No unnecessary complexity
     - Safe to run multiple times
 
+.PARAMETER No-Install
+    When specified, skips software installation, Windows Updates, and Visual Studio installation.
+    Only installs profile files, fonts, and terminal configuration.
+
 .EXAMPLE
     ./install.ps1
     Downloads and installs software and profile files to default PowerShell profile location.
+
+.EXAMPLE
+    ./install.ps1 -No-Install
+    Installs only profile files, fonts, and terminal configuration without software or updates.
 #>
 
 [CmdletBinding()]
-param()
+param(
+    [switch]${No-Install}
+)
 
 $ErrorActionPreference = 'Stop'
 
@@ -99,7 +109,11 @@ try {
     Write-Host "Platform: " -NoNewline
     Write-Host $platform.OS -ForegroundColor Yellow
     Write-Host "Installation Mode: " -NoNewline
-    Write-Host "Cloud (Azure Blob Storage)" -ForegroundColor Yellow
+    if (${No-Install}) {
+        Write-Host "Profile-Only (skipping software and updates)" -ForegroundColor Yellow
+    } else {
+        Write-Host "Full Installation" -ForegroundColor Yellow
+    }
     
     # Load configuration
     $configScript = Join-Path $TempDir "Scripts/Utils/Get-ConfigFromAzure.ps1"
@@ -109,18 +123,27 @@ try {
     # Execute installation steps
     $scriptsRoot = Join-Path $TempDir "Scripts"
     
-    # Install software
-    $installSoftwareScript = Join-Path $scriptsRoot "Install/Install-Software.ps1"
-    & $installSoftwareScript -Platform $platform -Config $config -ScriptsRoot $scriptsRoot
+    # Install software (skip if -No-Install)
+    if (${No-Install}) {
+        Write-Host ""
+        Write-Host "Skipping software installation (-No-Install specified)" -ForegroundColor Yellow
+    } else {
+        $installSoftwareScript = Join-Path $scriptsRoot "Install/Install-Software.ps1"
+        & $installSoftwareScript -Platform $platform -Config $config -ScriptsRoot $scriptsRoot
+    }
     
     # Install fonts (must be done before configuring terminal)
     $installFontsScript = Join-Path $scriptsRoot "Install/Install-Fonts.ps1"
     & $installFontsScript -Config $config
 
     if ($platform.IsWindows) {
-        # Install Windows Updates and Store Updates
-        $installUpdatesScript = Join-Path $scriptsRoot "Install/Install-WindowsUpdates.ps1"
-        & $installUpdatesScript
+        # Install Windows Updates and Store Updates (skip if -No-Install)
+        if (${No-Install}) {
+            Write-Host "Skipping Windows Updates (-No-Install specified)" -ForegroundColor Yellow
+        } else {
+            $installUpdatesScript = Join-Path $scriptsRoot "Install/Install-WindowsUpdates.ps1"
+            & $installUpdatesScript
+        }
 
         # Set Time Zone
         $setTimeZoneScript = Join-Path $scriptsRoot "Install/Set-TimeZone.ps1"
@@ -131,9 +154,13 @@ try {
         & $configureWTScript
     }
 
-    # Install Visual Studio (Windows only)
-    $installVSScript = Join-Path $scriptsRoot "Install/Install-VisualStudio.ps1"
-    & $installVSScript -Platform $platform
+    # Install Visual Studio (Windows only, skip if -No-Install)
+    if (${No-Install}) {
+        Write-Host "Skipping Visual Studio installation (-No-Install specified)" -ForegroundColor Yellow
+    } else {
+        $installVSScript = Join-Path $scriptsRoot "Install/Install-VisualStudio.ps1"
+        & $installVSScript -Platform $platform
+    }
     
     # Install profile files
     $installProfileScript = Join-Path $scriptsRoot "Profile/Install-ProfileFiles.ps1"
