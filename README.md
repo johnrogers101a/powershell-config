@@ -29,7 +29,14 @@ A cross-platform PowerShell profile configuration with custom scripts and Oh My 
 > **Important:** Run Windows Terminal as **Administrator** for the installation to succeed.
 
 ```powershell
+# Full installation with default profile
 iex (irm https://stprofilewus3.blob.core.windows.net/profile-config/bootstrap.ps1)
+
+# Install with a specific profile
+iex "& { $(irm https://stprofilewus3.blob.core.windows.net/profile-config/bootstrap.ps1) } -Profile 'my-workstation'"
+
+# Profile-only (skip software and updates)
+iex "& { $(irm https://stprofilewus3.blob.core.windows.net/profile-config/bootstrap.ps1) } -No-Install"
 ```
 
 **Works on fresh Windows installs!** The bootstrap script will:
@@ -39,7 +46,14 @@ iex (irm https://stprofilewus3.blob.core.windows.net/profile-config/bootstrap.ps
 
 #### macOS (Terminal - requires PowerShell 7+)
 ```bash
+# Full installation with default profile
 pwsh -NoProfile -ExecutionPolicy Bypass -Command "iex (irm https://stprofilewus3.blob.core.windows.net/profile-config/install.ps1)"
+
+# Install with a specific profile
+pwsh -NoProfile -ExecutionPolicy Bypass -Command "iex '& { \$(irm https://stprofilewus3.blob.core.windows.net/profile-config/install.ps1) } -Profile ''my-workstation'''"
+
+# Profile-only (skip software and updates)
+pwsh -NoProfile -ExecutionPolicy Bypass -Command "iex '& { \$(irm https://stprofilewus3.blob.core.windows.net/profile-config/install.ps1) } -No-Install'"
 ```
 
 **Don't have PowerShell on macOS?** Install it first:
