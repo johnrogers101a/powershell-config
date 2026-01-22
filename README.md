@@ -1,16 +1,19 @@
 # PowerShell Profile Configuration
 
-A cross-platform PowerShell profile configuration with custom modules and Oh My Posh theming for Windows and macOS. 🚀
+A cross-platform PowerShell profile configuration with custom scripts and Oh My Posh theming for Windows and macOS. 🚀
 
 ## Features
 
 - 🚀 **Automated Installation** - One-line install for Windows and macOS with cache busting
-- 📦 **Software Management** - Automatically installs PowerShell, Git, Oh My Posh, VS Code, and VS 2026 Enterprise
+- 📦 **Software Profiles** - Named profiles define software packages per platform (create, publish, install)
 - 🎨 **Oh My Posh Theming** - Beautiful terminal prompt with git integration
 - 🔤 **Nerd Fonts** - Automatic Meslo Nerd Font installation
+- 🖥️ **Windows Terminal** - Automatic configuration (default profile, font, default terminal)
+- 🔄 **Windows Updates** - Installs OS and app updates automatically
+- ⏰ **Time Zone** - Sets time zone from profile configuration
 - 🔄 **Auto-Sync** - GitHub Actions automatically syncs changes to Azure
 - ⚙️ **Modular Configuration** - JSON-driven installation config
-- � **Force Reload** - Always gets the latest code (no backups)
+- 🔃 **Force Reload** - Always gets the latest code (no backups)
 - 🔄 **Idempotent** - Run multiple times safely
 
 ## Quick Installation
@@ -67,7 +70,7 @@ pwsh -NoProfile -ExecutionPolicy Bypass -Command "if (!(Get-Command pwsh -ErrorA
 
 ## What Gets Installed
 
-### Software (automatically installed if not present)
+### Software (from profile - default profile includes)
 - **PowerShell** - Latest version via winget (Windows) or Homebrew (macOS)
 - **Git** - Version control system
 - **Oh My Posh** - Terminal prompt theming engine
@@ -79,8 +82,9 @@ pwsh -NoProfile -ExecutionPolicy Bypass -Command "if (!(Get-Command pwsh -ErrorA
 - `Microsoft.PowerShell_profile.ps1` - Main PowerShell profile
 - `Microsoft.VSCode_profile.ps1` - VS Code integrated terminal profile
 - `omp.json` - Oh My Posh theme configuration
-- `Modules/ProfileSetup/` - Custom PowerShell module
-- `install-config.json` - Modular installation configuration
+- `Scripts/` - PowerShell scripts for profile and installation
+- `install-config.json` - Installation configuration
+- `profiles/` - Software profile definitions
 
 ## Manual Installation
 
@@ -92,34 +96,38 @@ If you already have PowerShell installed, simply run:
 
 # Profile-only installation (skip software, updates, and Visual Studio)
 ./install.ps1 -No-Install
+
+# Install from a specific profile
+./install.ps1 -Profile "my-workstation"
 ```
 
 ### Installation Parameters
 
 | Parameter | Description |
 |-----------|-------------|
-| `-No-Install` | Skips software installation, Windows Updates, and Visual Studio installation. Only installs profile files, fonts, and terminal configuration. |
+| `-Profile <name>` | Install software from a specific profile (default: from config's defaultProfile) |
+| `-No-Install` | Skips software installation, Windows Updates. Only installs profile files, fonts, and terminal configuration. |
 
 ## What It Does
 
 The installation script follows SOLID principles and provides:
 
-1. **Software Installation** - Installs PowerShell, Git, Oh My Posh, and Visual Studio 2026 Enterprise (Windows only) if not present
+1. **Software Installation** - Installs software from the selected profile using winget (Windows) or brew (macOS)
 2. **Font Installation** - Installs Meslo Nerd Font via Oh My Posh
-3. **Profile Configuration** - Overwrites profile files in your PowerShell directory (no backups)
-4. **Module Setup** - Force reloads custom PowerShell modules to ensure latest code
-5. **Idempotent** - Can be run multiple times safely (skips already-installed software)
-6. **Automatic Loading** - Loads the new profile immediately
+3. **Windows Updates** - Installs OS updates and upgrades all apps (Windows only, requires Admin)
+4. **Time Zone** - Sets system time zone from profile configuration
+5. **Windows Terminal** - Configures PowerShell 7 as default, sets font, and makes it the default terminal
+6. **Profile Configuration** - Overwrites profile files in your PowerShell directory (no backups)
+7. **Idempotent** - Can be run multiple times safely (skips already-installed software)
+8. **Automatic Loading** - Loads the new profile immediately
 
 ## Architecture
 
-The installer uses a modular, object-oriented design following SOLID principles:
+The installer uses a script-based design following SOLID principles:
 
-- **Single Responsibility** - Each class handles one concern (Platform detection, File operations, Package management, etc.)
+- **Single Responsibility** - Each script handles one concern (Platform detection, Package installation, Profile management)
 - **Open/Closed** - Easy to extend with new package managers or platforms
-- **Liskov Substitution** - Package managers are interchangeable via base class
-- **Dependency Inversion** - High-level orchestrator depends on abstractions
-- **DRY** - Configuration externalized to JSON, no code duplication
+- **DRY** - Configuration externalized to JSON, reusable scripts
 - **YAGNI** - Only implements what's needed for Windows and macOS
 - **Idempotency** - Checks before installing, safe to run repeatedly
 
@@ -159,7 +167,7 @@ After making changes to the profile configuration, upload the updated files to A
 - Appropriate permissions on the storage account
 
 The script will:
-- Upload all profile files and modules to Azure Blob Storage
+- Upload all profile files and scripts to Azure Blob Storage
 - Overwrite existing files
 - Verify container public access settings
 
@@ -181,21 +189,51 @@ To remove the configuration, delete the installed files from your PowerShell pro
 
 ## Configuration
 
-The `install-config.json` file drives the entire installation process:
+### install-config.json
+
+Defines profile files and scripts to install:
 
 ```json
 {
-  "software": {
-    "windows": [...],  // Software to install on Windows
-    "macos": [...]     // Software to install on macOS
-  },
-  "profileFiles": [...],  // Profile files to install
-  "moduleFiles": [...],   // Modules to install
-  "fonts": [...]          // Fonts to install via oh-my-posh
+  "profileFiles": [...],   // Profile files to install
+  "scriptFiles": [...],    // Scripts to install
+  "defaultProfile": "...", // Default software profile name
+  "fonts": [...]           // Fonts to install via oh-my-posh
 }
 ```
 
-To add new software or change installation behavior, simply edit the JSON configuration.
+### Software Profiles
+
+Software profiles are stored in `profiles/<name>.json`:
+
+```json
+{
+  "name": "default",
+  "description": "Default development environment",
+  "timezone": "Pacific Standard Time",
+  "software": {
+    "windows": ["Microsoft.PowerShell", "Git.Git", ...],
+    "macos": {
+      "formulae": ["git", "oh-my-posh"],
+      "casks": ["powershell", "visual-studio-code"]
+    }
+  }
+}
+```
+
+## Custom Commands
+
+After installation, these commands are available in your PowerShell session:
+
+| Command | Description |
+|---------|-------------|
+| `Get-Software` | Lists user-installed software (excludes system packages) |
+| `New-Profile` | Creates a new software profile from installed software |
+| `Get-Profiles` | Lists all available profiles from Azure |
+| `Get-Profile` | Gets details of a specific profile |
+| `Install-Profile` | Installs software from a profile |
+| `Publish-Profile` | Uploads a profile to Azure |
+| `Show-Commands` | Displays all available custom commands |
 
 ## Troubleshooting
 
