@@ -5,13 +5,15 @@
 
 .DESCRIPTION
     Installs a package by ID using winget. Checks if already installed (idempotent).
-    Uses standard install command for all packages.
+    Special handling for VisualStudio2026 to include workloads.
 
 .PARAMETER PackageId
     The winget package ID (e.g., "Git.Git", "Microsoft.VisualStudioCode")
+    Or "VisualStudio2026" which maps to Microsoft.VisualStudio.Enterprise with workloads.
 
 .EXAMPLE
     & "$PSScriptRoot/Install-WithWinGet.ps1" -PackageId "Git.Git"
+    & "$PSScriptRoot/Install-WithWinGet.ps1" -PackageId "VisualStudio2026"
 
 .OUTPUTS
     Boolean indicating installation success
@@ -32,6 +34,23 @@ if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
     return $false
 }
 
+# Handle special package aliases
+$override = $null
+if ($PackageId -eq "VisualStudio2026") {
+    $PackageId = "Microsoft.VisualStudio.Enterprise"
+    $workloads = @(
+        "Microsoft.VisualStudio.Workload.NetWeb",
+        "Microsoft.VisualStudio.Workload.Azure",
+        "Microsoft.VisualStudio.Workload.Node",
+        "Microsoft.VisualStudio.Workload.ManagedDesktop",
+        "Microsoft.VisualStudio.Workload.Universal"
+    )
+    $override = "--passive --norestart"
+    foreach ($wl in $workloads) {
+        $override += " --add $wl"
+    }
+}
+
 # Check if package is installed using winget list --id
 Write-Host "Checking $PackageId..." -ForegroundColor Gray
 $check = winget list --id $PackageId --exact --source winget 2>&1
@@ -40,9 +59,14 @@ if ($LASTEXITCODE -eq 0 -and $check -notmatch "No installed package") {
     return $true
 }
 
-# Install package using standard command
+# Install package
 Write-Host "  Installing $PackageId..." -ForegroundColor Yellow
-$output = winget install -e --id $PackageId --silent --accept-package-agreements --accept-source-agreements --source winget 2>&1
+if ($override) {
+    # Don't use --silent when using --override (they conflict)
+    $output = winget install -e --id $PackageId --accept-package-agreements --accept-source-agreements --source winget --override "$override" 2>&1
+} else {
+    $output = winget install -e --id $PackageId --silent --accept-package-agreements --accept-source-agreements --source winget 2>&1
+}
 $exitCode = $LASTEXITCODE
 
 if ($exitCode -eq 0) {

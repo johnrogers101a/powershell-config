@@ -134,6 +134,11 @@ function Publish-Profile {
     & $scriptPath @args
 }
 
+function Invoke-Installer {
+    $scriptPath = Join-Path $PSScriptRoot "Invoke-Installer.ps1"
+    & $scriptPath @args
+}
+
 function Show-Commands {
     $profileDir = Split-Path -Parent $global:PROFILE.CurrentUserAllHosts
     $scriptsDir = Join-Path $profileDir "Scripts/Profile"

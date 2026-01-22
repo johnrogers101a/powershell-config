@@ -57,8 +57,10 @@ if (-not $installedSoftware -or $installedSoftware.Count -eq 0) {
     throw "No user-installed software found"
 }
 
-# Build profile object
-$timestamp = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
+# Build profile object with Pacific timezone
+$pacificTz = [System.TimeZoneInfo]::FindSystemTimeZoneById("Pacific Standard Time")
+$pacificTime = [System.TimeZoneInfo]::ConvertTimeFromUtc((Get-Date).ToUniversalTime(), $pacificTz)
+$timestamp = $pacificTime.ToString("yyyy-MM-dd HH:mm:ss") + " PST"
 
 $profile = @{
     name = $Name

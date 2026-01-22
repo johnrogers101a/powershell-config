@@ -62,7 +62,6 @@ $ScriptsToDownload = @(
     "Scripts/Install/Install-WindowsUpdates.ps1"
     "Scripts/Install/Set-TimeZone.ps1"
     "Scripts/Install/Configure-WindowsTerminal.ps1"
-    "Scripts/Install/Install-VisualStudio.ps1"
     "Scripts/Install/Install-Fonts.ps1"
     "Scripts/Profile/Install-ProfileFiles.ps1"
 )
@@ -195,14 +194,6 @@ try {
         # Configure Windows Terminal
         $configureWTScript = Join-Path $scriptsRoot "Install/Configure-WindowsTerminal.ps1"
         & $configureWTScript
-    }
-
-    # Install Visual Studio (Windows only, skip if -No-Install)
-    if (${No-Install}) {
-        Write-Host "Skipping Visual Studio installation (-No-Install specified)" -ForegroundColor Yellow
-    } else {
-        $installVSScript = Join-Path $scriptsRoot "Install/Install-VisualStudio.ps1"
-        & $installVSScript -Platform $platform
     }
     
     # Install profile files

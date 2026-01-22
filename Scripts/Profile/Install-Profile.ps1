@@ -37,18 +37,48 @@ $coreScriptsDir = Join-Path (Split-Path -Parent $PSScriptRoot) "Core"
 $platformScript = Join-Path $coreScriptsDir "Get-PlatformInfo.ps1"
 $platform = & $platformScript
 
-# Download profile
-Write-Host "Downloading profile '$Name'..." -ForegroundColor Cyan
+# Check for local profile first
+$profilesDir = Join-Path (Split-Path -Parent (Split-Path -Parent $PSScriptRoot)) "profiles"
+$localProfilePath = Join-Path $profilesDir "$Name.json"
+
+# Download profile from Azure
+Write-Host "Downloading profile '$Name' from Azure..." -ForegroundColor Cyan
 try {
     $profileUrl = "$AzureBaseUrl/profiles/$Name.json?$cacheBuster"
     $response = Invoke-WebRequest -Uri $profileUrl -UseBasicParsing -ErrorAction Stop
-    $profile = $response.Content | ConvertFrom-Json
+    $azureProfile = $response.Content | ConvertFrom-Json
+    $azureContent = $response.Content
 }
 catch {
     if ($_.Exception.Response.StatusCode -eq 404) {
-        throw "Profile '$Name' not found"
+        throw "Profile '$Name' not found in Azure"
     }
     throw "Could not fetch profile: $($_.Exception.Message)"
+}
+
+# Compare with local and publish if different
+if (Test-Path $localProfilePath) {
+    $localContent = Get-Content -Path $localProfilePath -Raw
+    $localProfile = $localContent | ConvertFrom-Json
+    
+    # Compare JSON (normalize by re-serializing)
+    $azureNormalized = $azureProfile | ConvertTo-Json -Depth 10 -Compress
+    $localNormalized = $localProfile | ConvertTo-Json -Depth 10 -Compress
+    
+    if ($azureNormalized -ne $localNormalized) {
+        Write-Host "  Local profile differs from Azure - publishing..." -ForegroundColor Yellow
+        $publishScript = Join-Path $PSScriptRoot "Publish-Profile.ps1"
+        & $publishScript -Name $Name
+        
+        # Use local profile for installation
+        $profile = $localProfile
+    }
+    else {
+        $profile = $azureProfile
+    }
+}
+else {
+    $profile = $azureProfile
 }
 
 Write-Host "Profile: $($profile.name)" -ForegroundColor Green
@@ -82,7 +112,7 @@ if ($platform.IsWindows) {
             Write-Host "  Would install: $packageId" -ForegroundColor Yellow
         }
         else {
-            & $installerScript -PackageId $packageId
+            $null = & $installerScript -PackageId $packageId
         }
     }
 }
@@ -106,7 +136,7 @@ elseif ($platform.IsMacOS) {
             Write-Host "  Would install formula: $formula" -ForegroundColor Yellow
         }
         else {
-            & $installerScript -PackageId $formula -Type "formula"
+            $null = & $installerScript -PackageId $formula -Type "formula"
         }
     }
     
@@ -115,7 +145,7 @@ elseif ($platform.IsMacOS) {
             Write-Host "  Would install cask: $cask" -ForegroundColor Yellow
         }
         else {
-            & $installerScript -PackageId $cask -Type "cask"
+            $null = & $installerScript -PackageId $cask -Type "cask"
         }
     }
 }
