@@ -12,7 +12,12 @@
 #>
 
 [CmdletBinding()]
-param()
+param(
+    [Parameter()]
+    [string]$Profile,
+    
+    [switch]${No-Install}
+)
 
 $ErrorActionPreference = 'Stop'
 
@@ -37,9 +42,19 @@ if ($PSVersionTable.PSVersion.Major -ge 7) {
     Write-Host "Downloading main installer..." -ForegroundColor Cyan
     $installer = (New-Object System.Net.WebClient).DownloadString($installerUrl)
     
+    # Save to temp file and execute with parameters
+    $tempScript = Join-Path ([System.IO.Path]::GetTempPath()) "install-$(Get-Date -Format 'yyyyMMddHHmmss').ps1"
+    $installer | Out-File -FilePath $tempScript -Encoding utf8
+    
     Write-Host "Executing installer..." -ForegroundColor Cyan
     Write-Host ""
-    Invoke-Expression $installer
+    
+    $params = @{}
+    if ($Profile) { $params['Profile'] = $Profile }
+    if (${No-Install}) { $params['No-Install'] = $true }
+    
+    & $tempScript @params
+    Remove-Item $tempScript -ErrorAction SilentlyContinue
     return
 }
 #endregion
@@ -100,8 +115,20 @@ if ($PSVersionTable.PSVersion.Major -eq 5 -and $null -eq $PSVersionTable.Platfor
     $cacheBuster = "v=$([DateTimeOffset]::UtcNow.ToUnixTimeSeconds())"
     $installerUrl = "https://stprofilewus3.blob.core.windows.net/profile-config/install.ps1?$cacheBuster"
     
-    # Use Invoke-WebRequest with no cache to download installer script
-    $pwshCommand = "`$wc = New-Object System.Net.WebClient; `$wc.CachePolicy = New-Object System.Net.Cache.RequestCachePolicy([System.Net.Cache.RequestCacheLevel]::NoCacheNoStore); iex (`$wc.DownloadString('$installerUrl'))"
+    # Build parameter string for install.ps1
+    $installParams = ""
+    if ($Profile) { $installParams += " -Profile '$Profile'" }
+    if (${No-Install}) { $installParams += " -No-Install" }
+    
+    # Use Invoke-WebRequest with no cache to download installer script, save to temp file and execute with parameters
+    $pwshCommand = @"
+`$wc = New-Object System.Net.WebClient
+`$wc.CachePolicy = New-Object System.Net.Cache.RequestCachePolicy([System.Net.Cache.RequestCacheLevel]::NoCacheNoStore)
+`$tempScript = Join-Path ([System.IO.Path]::GetTempPath()) 'install.ps1'
+`$wc.DownloadFile('$installerUrl', `$tempScript)
+& `$tempScript$installParams
+Remove-Item `$tempScript -ErrorAction SilentlyContinue
+"@
     
     # Start pwsh in a new process
     Start-Process -FilePath $pwshPath -ArgumentList "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", $pwshCommand -Wait -NoNewWindow
