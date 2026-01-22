@@ -1,40 +1,55 @@
 #!/usr/bin/env pwsh
 <#
 .SYNOPSIS
-    Sets the system time zone to Pacific Standard Time if requested.
+    Sets the system time zone based on profile configuration.
 
 .DESCRIPTION
-    Checks current time zone. If not Pacific, asks user to update it.
+    Sets the time zone to the value specified in the profile.
     Requires Administrator privileges to change time zone.
+    Skips if no timezone specified or already set correctly.
+
+.PARAMETER TimeZone
+    The time zone ID to set (e.g., "Pacific Standard Time")
 
 .EXAMPLE
-    & "$PSScriptRoot/Set-TimeZone.ps1"
+    & "$PSScriptRoot/Set-TimeZone.ps1" -TimeZone "Pacific Standard Time"
 #>
 
 [CmdletBinding()]
-param()
+param(
+    [Parameter()]
+    [string]$TimeZone
+)
 
 $ErrorActionPreference = 'Stop'
 
-$targetTimeZoneId = "Pacific Standard Time"
+# Skip if no timezone specified
+if (-not $TimeZone) {
+    Write-Host "No timezone specified in profile, skipping" -ForegroundColor Gray
+    return
+}
 
 try {
-    Write-Host "Current time zone: $($current.Id)" -ForegroundColor Gray
-    Write-Host "Do you want to set the time zone to pacific? (y/n): " -NoNewline
-    $response = Read-Host
-
-    if ($response -eq 'y') {
-        # Check for Administrator privileges
-        $isAdmin = ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
-        
-        if (-not $isAdmin) {
-            Write-Warning "Administrator privileges are required to change the time zone."
-            return
-        }
-
-        Set-TimeZone -Name "Pacific Standard Time"
-        Write-Host "✓ Time zone updated to $targetTimeZoneId" -ForegroundColor Green
+    $current = Get-TimeZone
+    
+    # Skip if already set correctly
+    if ($current.Id -eq $TimeZone) {
+        Write-Host "✓ Time zone already set to $TimeZone" -ForegroundColor Green
+        return
     }
+    
+    Write-Host "Setting time zone to $TimeZone..." -ForegroundColor Cyan
+    
+    # Check for Administrator privileges
+    $isAdmin = ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+    
+    if (-not $isAdmin) {
+        Write-Warning "Administrator privileges required to change time zone (current: $($current.Id))"
+        return
+    }
+
+    Set-TimeZone -Name $TimeZone
+    Write-Host "✓ Time zone updated to $TimeZone" -ForegroundColor Green
 } catch {
-    Write-Host "✗ Failed to check/set time zone: $_" -ForegroundColor Red
+    Write-Host "✗ Failed to set time zone: $_" -ForegroundColor Red
 }

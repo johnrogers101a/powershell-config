@@ -7,6 +7,7 @@
     Script-based installer using individual PowerShell scripts instead of modules.
     Downloads required installation scripts, executes setup, and installs profile.
     Works on Windows and macOS. Configuration driven by install-config.json.
+    Software packages defined in profile JSON files (profiles/*.json).
     
     Architecture: SOLID, DRY, YAGNI, Idempotent
     - Each script has a single responsibility
@@ -14,13 +15,21 @@
     - No unnecessary complexity
     - Safe to run multiple times
 
+.PARAMETER Profile
+    Name of the software profile to install (default: from config's defaultProfile).
+    Profiles are stored in profiles/<name>.json in Azure.
+
 .PARAMETER No-Install
     When specified, skips software installation, Windows Updates, and Visual Studio installation.
     Only installs profile files, fonts, and terminal configuration.
 
 .EXAMPLE
     ./install.ps1
-    Downloads and installs software and profile files to default PowerShell profile location.
+    Downloads and installs software from default profile.
+
+.EXAMPLE
+    ./install.ps1 -Profile "dev-workstation"
+    Installs software from the "dev-workstation" profile.
 
 .EXAMPLE
     ./install.ps1 -No-Install
@@ -29,6 +38,9 @@
 
 [CmdletBinding()]
 param(
+    [Parameter()]
+    [string]$Profile,
+    
     [switch]${No-Install}
 )
 
@@ -105,9 +117,20 @@ try {
     $platformScript = Join-Path $TempDir "Scripts/Core/Get-PlatformInfo.ps1"
     $platform = & $platformScript
     
+    # Load configuration
+    $configScript = Join-Path $TempDir "Scripts/Utils/Get-ConfigFromAzure.ps1"
+    $configPath = Join-Path $TempDir "install-config.json"
+    $config = & $configScript -BaseUrl $AzureBaseUrl -LocalPath $configPath -FileName "install-config.json"
+    
+    # Determine profile name
+    $profileName = if ($Profile) { $Profile } else { $config.defaultProfile }
+    if (-not $profileName) { $profileName = "default" }
+    
     Write-Host ""
     Write-Host "Platform: " -NoNewline
     Write-Host $platform.OS -ForegroundColor Yellow
+    Write-Host "Profile: " -NoNewline
+    Write-Host $profileName -ForegroundColor Yellow
     Write-Host "Installation Mode: " -NoNewline
     if (${No-Install}) {
         Write-Host "Profile-Only (skipping software and updates)" -ForegroundColor Yellow
@@ -115,13 +138,33 @@ try {
         Write-Host "Full Installation" -ForegroundColor Yellow
     }
     
-    # Load configuration
-    $configScript = Join-Path $TempDir "Scripts/Utils/Get-ConfigFromAzure.ps1"
-    $configPath = Join-Path $TempDir "install-config.json"
-    $config = & $configScript -BaseUrl $AzureBaseUrl -LocalPath $configPath -FileName "install-config.json"
+    # Download and load profile
+    Write-Host ""
+    Write-Host "Downloading profile '$profileName'..." -ForegroundColor Cyan
+    $profileUrl = "$AzureBaseUrl/profiles/$profileName.json?$cacheBuster"
+    $profilePath = Join-Path $TempDir "profile.json"
+    
+    try {
+        Invoke-WebRequest -Uri $profileUrl -OutFile $profilePath -ErrorAction Stop -UseBasicParsing
+        $softwareProfile = Get-Content -Path $profilePath -Raw | ConvertFrom-Json
+        Write-Host "  ✓ Profile loaded: $($softwareProfile.description)" -ForegroundColor Green
+    }
+    catch {
+        Write-Host "  ✗ Failed to download profile '$profileName'" -ForegroundColor Red
+        Write-Host "  Error: $($_.Exception.Message)" -ForegroundColor Red
+        throw "Profile '$profileName' not found"
+    }
     
     # Execute installation steps
     $scriptsRoot = Join-Path $TempDir "Scripts"
+    
+    # Initialize winget on Windows (triggers license acceptance before silent installs)
+    if ($platform.IsWindows -and -not ${No-Install}) {
+        Write-Host ""
+        Write-Host "Initializing Windows Package Manager..." -ForegroundColor Cyan
+        $null = winget list --source winget 2>&1 | Out-Null
+        Write-Host "  ✓ winget ready" -ForegroundColor Green
+    }
     
     # Install software (skip if -No-Install)
     if (${No-Install}) {
@@ -129,7 +172,7 @@ try {
         Write-Host "Skipping software installation (-No-Install specified)" -ForegroundColor Yellow
     } else {
         $installSoftwareScript = Join-Path $scriptsRoot "Install/Install-Software.ps1"
-        & $installSoftwareScript -Platform $platform -Config $config -ScriptsRoot $scriptsRoot
+        & $installSoftwareScript -Platform $platform -Profile $softwareProfile -ScriptsRoot $scriptsRoot
     }
     
     # Install fonts (must be done before configuring terminal)
@@ -145,9 +188,9 @@ try {
             & $installUpdatesScript
         }
 
-        # Set Time Zone
+        # Set Time Zone from profile
         $setTimeZoneScript = Join-Path $scriptsRoot "Install/Set-TimeZone.ps1"
-        & $setTimeZoneScript
+        & $setTimeZoneScript -TimeZone $softwareProfile.timezone
 
         # Configure Windows Terminal
         $configureWTScript = Join-Path $scriptsRoot "Install/Configure-WindowsTerminal.ps1"
@@ -168,13 +211,10 @@ try {
     
     # Load profile
     Write-Host ""
-    Write-Host "Loading profile..." -ForegroundColor Cyan
-    try {
-        . $global:PROFILE.CurrentUserAllHosts
-        Write-Host "Profile loaded successfully!" -ForegroundColor Green
-    }
-    catch {
-        Write-Host "Note: Profile will be loaded when you start a new PowerShell session." -ForegroundColor Yellow
+    Write-Host "Running '. `$PROFILE'..." -ForegroundColor Cyan
+    $profilePath = $global:PROFILE.CurrentUserAllHosts
+    if ($profilePath -and (Test-Path $profilePath)) {
+        . $profilePath
     }
     
     # Show footer
@@ -183,11 +223,8 @@ try {
     Write-Host "Installation Complete!" -ForegroundColor Green
     Write-Host "========================================" -ForegroundColor Green
     Write-Host ""
-    Write-Host "Next Steps:" -ForegroundColor Cyan
-    Write-Host "  1. Restart your terminal or run: " -NoNewline
-    Write-Host ". `$PROFILE" -ForegroundColor Yellow
-    Write-Host "  2. Configure your terminal to use the Meslo Nerd Font" -ForegroundColor White
-    Write-Host ""
+    Write-Host "Tip: " -NoNewline -ForegroundColor Cyan
+    Write-Host "Configure your terminal to use the Meslo Nerd Font" -ForegroundColor White
 }
 catch {
     Write-Host ""
@@ -197,9 +234,6 @@ catch {
 }
 finally {
     # Cleanup temporary directory
-    Write-Host ""
-    Write-Host "Cleaning up temporary files..." -ForegroundColor Cyan
     Remove-Item $TempDir -Recurse -Force -ErrorAction SilentlyContinue
-    Write-Host "  ✓ Cleanup complete" -ForegroundColor Green
 }
 #endregion

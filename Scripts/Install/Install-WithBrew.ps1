@@ -4,19 +4,18 @@
     Installs a package using Homebrew package manager.
 
 .DESCRIPTION
-    Checks if package is already installed using pre-fetched list (idempotent).
-    Installs package if not present. Updates environment variables for current session.
-    Returns success status.
+    Installs a formula or cask by ID using brew. Checks if already installed (idempotent).
+    Updates environment variables for current session.
 
-.PARAMETER Package
-    Package configuration object with properties: name, installArgs, command, packageId
+.PARAMETER PackageId
+    The Homebrew package ID (e.g., "git", "visual-studio-code")
 
-.PARAMETER InstalledSoftware
-    Hashtable of already installed software (packageId -> $true)
+.PARAMETER Type
+    Package type: "formula" or "cask" (default: "formula")
 
 .EXAMPLE
-    $package = @{ name = "Git"; installArgs = @("install", "git"); command = "git"; packageId = "git" }
-    $success = & "$PSScriptRoot/Install-WithBrew.ps1" -Package $package -InstalledSoftware $installed
+    & "$PSScriptRoot/Install-WithBrew.ps1" -PackageId "git" -Type "formula"
+    & "$PSScriptRoot/Install-WithBrew.ps1" -PackageId "visual-studio-code" -Type "cask"
 
 .OUTPUTS
     Boolean indicating installation success
@@ -25,10 +24,11 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory)]
-    [PSCustomObject]$Package,
+    [string]$PackageId,
     
-    [Parameter(Mandatory)]
-    [hashtable]$InstalledSoftware
+    [Parameter()]
+    [ValidateSet("formula", "cask")]
+    [string]$Type = "formula"
 )
 
 $ErrorActionPreference = 'Stop'
@@ -40,18 +40,31 @@ if (-not (Get-Command brew -ErrorAction SilentlyContinue)) {
     return $false
 }
 
-# Check if package is already installed using pre-fetched list (idempotency)
-if ($InstalledSoftware.ContainsKey($Package.packageId)) {
-    Write-Host "✓ $($Package.name) is already installed" -ForegroundColor Green
+# Check if package is already installed
+Write-Host "Checking $PackageId..." -ForegroundColor Gray
+if ($Type -eq "cask") {
+    $check = brew list --cask $PackageId 2>&1
+}
+else {
+    $check = brew list $PackageId 2>&1
+}
+
+if ($LASTEXITCODE -eq 0) {
+    Write-Host "  ✓ $PackageId is already installed" -ForegroundColor Green
     return $true
 }
 
 # Install package
-Write-Host "Installing $($Package.name) via Homebrew..." -ForegroundColor Yellow
-& brew @($Package.installArgs) 2>&1 | Out-Null
+Write-Host "  Installing $PackageId ($Type)..." -ForegroundColor Yellow
+if ($Type -eq "cask") {
+    $output = brew install --cask $PackageId 2>&1
+}
+else {
+    $output = brew install $PackageId 2>&1
+}
 
 if ($LASTEXITCODE -eq 0) {
-    Write-Host "  ✓ $($Package.name) installed successfully" -ForegroundColor Green
+    Write-Host "  ✓ $PackageId installed successfully" -ForegroundColor Green
     
     # Update PATH for current session
     if (Test-Path "/opt/homebrew/bin/brew") {
@@ -66,6 +79,9 @@ if ($LASTEXITCODE -eq 0) {
     return $true
 }
 else {
-    Write-Host "  ✗ Failed to install $($Package.name)" -ForegroundColor Red
+    Write-Host "  ✗ Failed to install $PackageId" -ForegroundColor Red
+    if ($output) {
+        Write-Host "  Output: $($output | Select-Object -First 3 | Out-String)" -ForegroundColor Gray
+    }
     return $false
 }

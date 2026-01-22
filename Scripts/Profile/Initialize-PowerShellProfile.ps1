@@ -93,13 +93,90 @@ function Install-ModuleIfMissing {
     & $scriptPath @args
 }
 
+function Get-Software {
+    $scriptPath = Join-Path $PSScriptRoot "Get-Software.ps1"
+    & $scriptPath @args
+}
+
+# Profile management commands
+function New-Profile {
+    $scriptPath = Join-Path $PSScriptRoot "New-Profile.ps1"
+    & $scriptPath @args
+}
+
+function Get-Profiles {
+    $scriptPath = Join-Path $PSScriptRoot "Get-Profiles.ps1"
+    & $scriptPath @args
+}
+
+function Get-Profile {
+    $scriptPath = Join-Path $PSScriptRoot "Get-Profile.ps1"
+    & $scriptPath @args
+}
+
+function Set-Profile {
+    $scriptPath = Join-Path $PSScriptRoot "Set-Profile.ps1"
+    & $scriptPath @args
+}
+
+function Remove-Profile {
+    $scriptPath = Join-Path $PSScriptRoot "Remove-Profile.ps1"
+    & $scriptPath @args
+}
+
+function Install-Profile {
+    $scriptPath = Join-Path $PSScriptRoot "Install-Profile.ps1"
+    & $scriptPath @args
+}
+
+function Publish-Profile {
+    $scriptPath = Join-Path $PSScriptRoot "Publish-Profile.ps1"
+    & $scriptPath @args
+}
+
+function Show-Commands {
+    $profileDir = Split-Path -Parent $global:PROFILE.CurrentUserAllHosts
+    $scriptsDir = Join-Path $profileDir "Scripts/Profile"
+    
+    # Get all scripts, exclude Initialize, Install-ProfileFiles, and any backup copies
+    $scripts = Get-ChildItem -Path $scriptsDir -Filter "*.ps1" -ErrorAction SilentlyContinue |
+        Where-Object { 
+            $_.Name -notmatch '^Initialize-PowerShellProfile\.ps1$' -and
+            $_.Name -notmatch '^Install-ProfileFiles\.ps1$' -and
+            $_.Name -notmatch ' - Copy'
+        }
+    
+    if (-not $scripts) {
+        Write-Host "No custom commands found." -ForegroundColor Yellow
+        return
+    }
+    
+    Write-Host ""
+    Write-Host "Custom Commands Available:" -ForegroundColor Cyan
+    
+    # Calculate max command name length for alignment
+    $maxLen = ($scripts | ForEach-Object { $_.BaseName.Length } | Measure-Object -Maximum).Maximum + 2
+    
+    foreach ($script in $scripts | Sort-Object Name) {
+        $cmdName = $script.BaseName
+        $synopsis = ""
+        
+        # Extract .SYNOPSIS from script file
+        $content = Get-Content $script.FullName -Raw -ErrorAction SilentlyContinue
+        if ($content -match '\.SYNOPSIS\s*\r?\n\s*(.+?)(?:\r?\n\s*\r?\n|\.DESCRIPTION|\.PARAMETER|\.EXAMPLE)') {
+            $synopsis = $Matches[1].Trim()
+        }
+        
+        $padding = ' ' * ($maxLen - $cmdName.Length)
+        Write-Host "  $cmdName$padding" -NoNewline -ForegroundColor Green
+        Write-Host "- $synopsis" -ForegroundColor Gray
+    }
+    
+    Write-Host ""
+    Write-Host "  Show-Commands$(' ' * ($maxLen - 13))" -NoNewline -ForegroundColor Green
+    Write-Host "- Display this help message" -ForegroundColor Gray
+    Write-Host ""
+}
+
 # Display loaded custom commands
-Write-Host ""
-Write-Host "Custom Commands Available:" -ForegroundColor Cyan
-Write-Host "  Get-GitBranches           " -NoNewline -ForegroundColor Green
-Write-Host "- Retrieve all git branches (local and remote)" -ForegroundColor Gray
-Write-Host "  Set-DefaultWorkingDirectory " -NoNewline -ForegroundColor Green
-Write-Host "- Navigate to default working directory" -ForegroundColor Gray
-Write-Host "  Install-ModuleIfMissing   " -NoNewline -ForegroundColor Green
-Write-Host "- Install PowerShell modules on-demand" -ForegroundColor Gray
-Write-Host ""
+Show-Commands

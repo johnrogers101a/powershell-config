@@ -1,24 +1,24 @@
 #!/usr/bin/env pwsh
 <#
 .SYNOPSIS
-    Installs required software based on platform and configuration.
+    Installs required software based on platform and profile.
 
 .DESCRIPTION
-    Reads software list from configuration for current platform.
+    Reads software list from profile for current platform.
     Delegates to platform-specific installer scripts (Install-WithWinGet or Install-WithBrew).
     Idempotent - skips already installed packages.
 
 .PARAMETER Platform
     Platform object with OS, IsWindows, IsMacOS properties
 
-.PARAMETER Config
-    Configuration object with software.windows and software.macos arrays
+.PARAMETER Profile
+    Profile object with software.windows and software.macos properties
 
 .PARAMETER ScriptsRoot
     Root path to Scripts directory
 
 .EXAMPLE
-    & "$PSScriptRoot/Install-Software.ps1" -Platform $platform -Config $config -ScriptsRoot $scriptsRoot
+    & "$PSScriptRoot/Install-Software.ps1" -Platform $platform -Profile $profile -ScriptsRoot $scriptsRoot
 
 .OUTPUTS
     None (prints status to console)
@@ -30,7 +30,7 @@ param(
     [PSCustomObject]$Platform,
     
     [Parameter(Mandatory)]
-    [PSCustomObject]$Config,
+    [PSCustomObject]$Profile,
     
     [Parameter(Mandatory)]
     [string]$ScriptsRoot
@@ -38,43 +38,60 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
-# Get software list for current platform
-$softwareList = $Config.software.($Platform.OS)
-
-if (-not $softwareList) {
-    Write-Host "No software configuration found for $($Platform.OS)" -ForegroundColor Yellow
-    return
-}
-
 Write-Host ""
-Write-Host "Checking required software..." -ForegroundColor Green
+Write-Host "Installing software from profile '$($Profile.name)'..." -ForegroundColor Green
 Write-Host ""
 
-# Get list of installed software once
-$installedSoftware = @{}
 if ($Platform.IsWindows) {
-    # We will check each package individually in Install-WithWinGet.ps1
-    # because parsing 'winget list' output is fragile due to variable column widths and spaces in names.
-    Write-Host "Using direct package checks for Windows..." -ForegroundColor Cyan
-} else {
-    Write-Host "Getting installed software list (brew)..." -ForegroundColor Cyan
-    $brewList = brew list 2>$null
-    foreach ($pkg in $brewList) {
-        $installedSoftware[$pkg.Trim()] = $true
+    $packages = $Profile.software.windows
+    
+    if (-not $packages -or $packages.Count -eq 0) {
+        Write-Host "No Windows packages in profile" -ForegroundColor Yellow
+        return
     }
-    Write-Host "  Found $($installedSoftware.Count) installed packages" -ForegroundColor Green
+    
+    Write-Host "Windows packages to install: $($packages.Count)" -ForegroundColor Cyan
+    Write-Host ""
+    
+    # Initialize winget (triggers license acceptance)
+    Write-Host "Initializing winget..." -ForegroundColor Gray
+    $null = winget list --source winget 2>&1 | Out-Null
+    Write-Host ""
+    
+    $installerScript = Join-Path $ScriptsRoot "Install/Install-WithWinGet.ps1"
+    
+    foreach ($packageId in $packages) {
+        $null = & $installerScript -PackageId $packageId
+    }
+}
+elseif ($Platform.IsMacOS) {
+    $formulae = $Profile.software.macos.formulae
+    $casks = $Profile.software.macos.casks
+    
+    $totalCount = 0
+    if ($formulae) { $totalCount += $formulae.Count }
+    if ($casks) { $totalCount += $casks.Count }
+    
+    if ($totalCount -eq 0) {
+        Write-Host "No macOS packages in profile" -ForegroundColor Yellow
+        return
+    }
+    
+    Write-Host "macOS packages to install: $totalCount (formulae: $($formulae.Count), casks: $($casks.Count))" -ForegroundColor Cyan
+    Write-Host ""
+    
+    $installerScript = Join-Path $ScriptsRoot "Install/Install-WithBrew.ps1"
+    
+    foreach ($formula in $formulae) {
+        $null = & $installerScript -PackageId $formula -Type "formula"
+    }
+    
+    foreach ($cask in $casks) {
+        $null = & $installerScript -PackageId $cask -Type "cask"
+    }
+}
+else {
+    Write-Host "Unsupported platform: $($Platform.OS)" -ForegroundColor Yellow
 }
 
 Write-Host ""
-
-# Select appropriate installer script
-$installerScript = if ($Platform.IsWindows) {
-    Join-Path $ScriptsRoot "Install/Install-WithWinGet.ps1"
-} else {
-    Join-Path $ScriptsRoot "Install/Install-WithBrew.ps1"
-}
-
-# Install each package
-foreach ($package in $softwareList) {
-    $null = & $installerScript -Package $package -InstalledSoftware $installedSoftware
-}

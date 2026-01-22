@@ -32,7 +32,7 @@
 [CmdletBinding()]
 param(
     [Parameter()]
-    [string[]]$ExcludePatterns = @('.git', 'README.md'),
+    [string[]]$ExcludePatterns = @('.git', 'README.md', 'profiles-index.json'),
     
     [Parameter()]
     [switch]$Force,

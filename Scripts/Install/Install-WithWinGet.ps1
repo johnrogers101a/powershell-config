@@ -4,18 +4,14 @@
     Installs a package using Windows Package Manager (winget).
 
 .DESCRIPTION
-    Checks if package is already installed using pre-fetched list (idempotent).
-    Installs package if not present. Returns success status.
+    Installs a package by ID using winget. Checks if already installed (idempotent).
+    Uses standard install command for all packages.
 
-.PARAMETER Package
-    Package configuration object with properties: name, packageId, installArgs, command
-
-.PARAMETER InstalledSoftware
-    Hashtable of already installed software (packageId -> $true)
+.PARAMETER PackageId
+    The winget package ID (e.g., "Git.Git", "Microsoft.VisualStudioCode")
 
 .EXAMPLE
-    $package = @{ name = "Git"; packageId = "Git.Git"; installArgs = @("-e", "--id", "Git.Git"); command = "git" }
-    $success = & "$PSScriptRoot/Install-WithWinGet.ps1" -Package $package -InstalledSoftware $installed
+    & "$PSScriptRoot/Install-WithWinGet.ps1" -PackageId "Git.Git"
 
 .OUTPUTS
     Boolean indicating installation success
@@ -24,10 +20,7 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory)]
-    [PSCustomObject]$Package,
-    
-    [Parameter(Mandatory)]
-    [hashtable]$InstalledSoftware
+    [string]$PackageId
 )
 
 $ErrorActionPreference = 'Stop'
@@ -39,34 +32,31 @@ if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
     return $false
 }
 
-# Check if package is already installed using pre-fetched list (idempotency)
-if ($InstalledSoftware.ContainsKey($Package.packageId)) {
-    Write-Host "✓ $($Package.name) is already installed" -ForegroundColor Green
-    return $true
-}
-
 # Check if package is installed using winget list --id
-# This is more robust than parsing the full list
-Write-Host "Checking if $($Package.name) is installed..." -ForegroundColor Gray
-$check = winget list --id $Package.packageId --exact 2>&1
-if ($LASTEXITCODE -eq 0) {
-    Write-Host "✓ $($Package.name) is already installed" -ForegroundColor Green
+Write-Host "Checking $PackageId..." -ForegroundColor Gray
+$check = winget list --id $PackageId --exact --source winget 2>&1
+if ($LASTEXITCODE -eq 0 -and $check -notmatch "No installed package") {
+    Write-Host "  ✓ $PackageId is already installed" -ForegroundColor Green
     return $true
 }
 
-# Install package
-Write-Host "Installing $($Package.name) via winget..." -ForegroundColor Yellow
-$output = & winget @($Package.installArgs) 2>&1
+# Install package using standard command
+Write-Host "  Installing $PackageId..." -ForegroundColor Yellow
+$output = winget install -e --id $PackageId --silent --accept-package-agreements --accept-source-agreements --source winget 2>&1
 $exitCode = $LASTEXITCODE
 
 if ($exitCode -eq 0) {
-    Write-Host "  ✓ $($Package.name) installed successfully" -ForegroundColor Green
+    Write-Host "  ✓ $PackageId installed successfully" -ForegroundColor Green
     return $true
 }
 else {
-    Write-Host "  ✗ Failed to install $($Package.name) (Exit code: $exitCode)" -ForegroundColor Red
-    Write-Host "  Command: winget $($Package.installArgs -join ' ')" -ForegroundColor Gray
+    Write-Host "  ✗ Failed to install $PackageId (Exit code: $exitCode)" -ForegroundColor Red
     if ($output) {
+        $outputStr = $output | Out-String
+        if ($outputStr -match "already installed") {
+            Write-Host "  ✓ $PackageId is already installed" -ForegroundColor Green
+            return $true
+        }
         Write-Host "  Output: $($output | Select-Object -First 3 | Out-String)" -ForegroundColor Gray
     }
     return $false
