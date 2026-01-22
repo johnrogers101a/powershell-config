@@ -87,8 +87,18 @@ pwsh -NoProfile -ExecutionPolicy Bypass -Command "if (!(Get-Command pwsh -ErrorA
 If you already have PowerShell installed, simply run:
 
 ```powershell
+# Full installation (software, updates, and profile)
 ./install.ps1
+
+# Profile-only installation (skip software, updates, and Visual Studio)
+./install.ps1 -No-Install
 ```
+
+### Installation Parameters
+
+| Parameter | Description |
+|-----------|-------------|
+| `-No-Install` | Skips software installation, Windows Updates, and Visual Studio installation. Only installs profile files, fonts, and terminal configuration. |
 
 ## What It Does
 
