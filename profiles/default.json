@@ -2,27 +2,61 @@
   "name": "default",
   "description": "Default development environment",
   "createdAt": "2026-01-22T19:00:00Z",
-  "updatedAt": "2026-01-22T19:00:00Z",
-  "timezone": "Pacific Standard Time",
-  "software": {
-    "windows": [
-      "Microsoft.PowerShell",
-      "Git.Git",
-      "JanDeDobbeleer.OhMyPosh",
-      "Microsoft.VisualStudioCode",
-      "VisualStudio2026"
-    ],
-    "macos": {
-      "formulae": [
-        "git",
-        "oh-my-posh"
-      ],
-      "casks": [
-        "powershell",
-        "visual-studio-code"
-      ]
+  "updatedAt": "2026-07-06T00:00:00Z",
+  "timezone": "America/Los_Angeles",
+  "software": [
+    {
+      "id": "powershell",
+      "description": "PowerShell 7+",
+      "installers": {
+        "windows": { "manager": "winget", "id": "Microsoft.PowerShell" },
+        "macos":   { "manager": "script", "url": "https://aka.ms/install-powershell.sh" },
+        "linux":   { "manager": "script", "url": "https://aka.ms/install-powershell.sh" }
+      }
+    },
+    {
+      "id": "git",
+      "description": "Git version control",
+      "installers": {
+        "windows": { "manager": "winget", "id": "Git.Git" },
+        "macos":   { "manager": "brew", "id": "git" },
+        "linux":   { "manager": "brew", "id": "git" }
+      }
+    },
+    {
+      "id": "git-credential-manager",
+      "description": "Git Credential Manager — bundled with Git on Windows",
+      "installers": {
+        "macos":   { "manager": "brew-cask", "id": "git-credential-manager", "postInstall": "git-credential-manager configure" },
+        "linux":   { "manager": "brew-cask", "id": "git-credential-manager", "postInstall": "git-credential-manager configure" }
+      }
+    },
+    {
+      "id": "oh-my-posh",
+      "description": "Oh My Posh terminal prompt theme engine",
+      "installers": {
+        "windows": { "manager": "winget", "id": "JanDeDobbeleer.OhMyPosh" },
+        "macos":   { "manager": "brew", "id": "oh-my-posh" },
+        "linux":   { "manager": "brew", "id": "oh-my-posh" }
+      }
+    },
+    {
+      "id": "vscode",
+      "description": "Visual Studio Code",
+      "installers": {
+        "windows": { "manager": "winget", "id": "Microsoft.VisualStudioCode" },
+        "macos":   { "manager": "brew-cask", "id": "visual-studio-code" },
+        "linux":   { "manager": "flatpak", "id": "com.visualstudio.code" }
+      }
+    },
+    {
+      "id": "visual-studio-2026",
+      "description": "Visual Studio 2026 Enterprise",
+      "installers": {
+        "windows": { "manager": "winget", "id": "VisualStudio2026" }
+      }
     }
-  }
+  ]
 }
 
 

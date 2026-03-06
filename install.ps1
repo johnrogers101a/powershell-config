@@ -157,14 +157,6 @@ try {
     # Execute installation steps
     $scriptsRoot = Join-Path $TempDir "Scripts"
     
-    # Initialize winget on Windows (triggers license acceptance before silent installs)
-    if ($platform.IsWindows -and -not ${No-Install}) {
-        Write-Host ""
-        Write-Host "Initializing Windows Package Manager..." -ForegroundColor Cyan
-        $null = winget list --source winget 2>&1 | Out-Null
-        Write-Host "  ✓ winget ready" -ForegroundColor Green
-    }
-    
     # Install software (skip if -No-Install)
     if (${No-Install}) {
         Write-Host ""
@@ -178,23 +170,21 @@ try {
     $installFontsScript = Join-Path $scriptsRoot "Install/Install-Fonts.ps1"
     & $installFontsScript -Config $config
 
-    if ($platform.IsWindows) {
-        # Install Windows Updates and Store Updates (skip if -No-Install)
+    # Install Windows Updates and Store Updates (skip if -No-Install)
         if (${No-Install}) {
-            Write-Host "Skipping Windows Updates (-No-Install specified)" -ForegroundColor Yellow
+            Write-Host "Skipping OS Updates (-No-Install specified)" -ForegroundColor Yellow
         } else {
-            $installUpdatesScript = Join-Path $scriptsRoot "Install/Install-WindowsUpdates.ps1"
-            & $installUpdatesScript
+            $installUpdatesScript = Join-Path $scriptsRoot "Install/Install-OsUpdates.ps1"
+            & $installUpdatesScript -Platform $platform
         }
 
         # Set Time Zone from profile
         $setTimeZoneScript = Join-Path $scriptsRoot "Install/Set-TimeZone.ps1"
-        & $setTimeZoneScript -TimeZone $softwareProfile.timezone
+        & $setTimeZoneScript -Platform $platform -TimeZone $softwareProfile.timezone
 
-        # Configure Windows Terminal
-        $configureWTScript = Join-Path $scriptsRoot "Install/Configure-WindowsTerminal.ps1"
-        & $configureWTScript
-    }
+        # Configure terminal
+        $configureTerminalScript = Join-Path $scriptsRoot "Install/Configure-Terminal.ps1"
+        & $configureTerminalScript -Platform $platform
     
     # Install profile files
     $installProfileScript = Join-Path $scriptsRoot "Profile/Install-ProfileFiles.ps1"

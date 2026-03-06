@@ -1,0 +1,132 @@
+{
+  "name": "John",
+  "description": "John's development environment",
+  "createdAt": "2026-01-22T19:53:31Z",
+  "updatedAt": "2026-07-06T00:00:00Z",
+  "timezone": "America/Los_Angeles",
+  "software": [
+    {
+      "id": "dotnet",
+      "description": ".NET 10 SDK",
+      "installers": {
+        "windows": { "manager": "winget", "id": "Microsoft.DotNet.SDK.10" },
+        "macos":   { "manager": "brew-cask", "id": "dotnet-sdk" },
+        "linux":   { "manager": "brew", "id": "dotnet" }
+      }
+    },
+    {
+      "id": "git",
+      "description": "Git version control",
+      "installers": {
+        "windows": { "manager": "winget", "id": "Git.Git" },
+        "macos":   { "manager": "brew", "id": "git" },
+        "linux":   { "manager": "brew", "id": "git" }
+      }
+    },
+    {
+      "id": "git-credential-manager",
+      "description": "Git Credential Manager — bundled with Git on Windows",
+      "installers": {
+        "macos":   { "manager": "brew-cask", "id": "git-credential-manager", "postInstall": "git-credential-manager configure" },
+        "linux":   { "manager": "brew-cask", "id": "git-credential-manager", "postInstall": "git-credential-manager configure" }
+      }
+    },
+    {
+      "id": "powershell",
+      "description": "PowerShell 7+",
+      "installers": {
+        "windows": { "manager": "winget", "id": "Microsoft.PowerShell" },
+        "macos":   { "manager": "script", "url": "https://aka.ms/install-powershell.sh" },
+        "linux":   { "manager": "script", "url": "https://aka.ms/install-powershell.sh" }
+      }
+    },
+    {
+      "id": "azure-cli",
+      "description": "Microsoft Azure CLI",
+      "installers": {
+        "windows": { "manager": "winget", "id": "Microsoft.AzureCLI" },
+        "macos":   { "manager": "brew", "id": "azure-cli" },
+        "linux":   { "manager": "brew", "id": "azure-cli" }
+      }
+    },
+    {
+      "id": "gh",
+      "description": "GitHub CLI",
+      "installers": {
+        "windows": { "manager": "winget", "id": "GitHub.cli" },
+        "macos":   { "manager": "brew", "id": "gh" },
+        "linux":   { "manager": "brew", "id": "gh" }
+      }
+    },
+    {
+      "id": "node-lts",
+      "description": "Node.js LTS (v22)",
+      "installers": {
+        "windows": { "manager": "winget", "id": "OpenJS.NodeJS.LTS" },
+        "macos":   { "manager": "brew", "id": "node@22", "postInstall": "brew link --force --overwrite node@22" },
+        "linux":   { "manager": "brew", "id": "node@22", "postInstall": "brew link --force --overwrite node@22" }
+      }
+    },
+    {
+      "id": "oh-my-posh",
+      "description": "Oh My Posh terminal prompt theme engine",
+      "installers": {
+        "windows": { "manager": "winget", "id": "JanDeDobbeleer.OhMyPosh" },
+        "macos":   { "manager": "brew", "id": "oh-my-posh" },
+        "linux":   { "manager": "brew", "id": "oh-my-posh" }
+      }
+    },
+    {
+      "id": "vscode",
+      "description": "Visual Studio Code",
+      "installers": {
+        "windows": { "manager": "winget", "id": "Microsoft.VisualStudioCode" },
+        "macos":   { "manager": "brew-cask", "id": "visual-studio-code" },
+        "linux":   { "manager": "flatpak", "id": "com.visualstudio.code" }
+      }
+    },
+    {
+      "id": "chrome",
+      "description": "Google Chrome",
+      "installers": {
+        "windows": { "manager": "winget", "id": "Google.Chrome" },
+        "macos":   { "manager": "brew-cask", "id": "google-chrome" },
+        "linux":   { "manager": "flatpak", "id": "com.google.Chrome" }
+      }
+    },
+    {
+      "id": "protonpass",
+      "description": "Proton Pass password manager",
+      "installers": {
+        "windows": { "manager": "winget", "id": "Proton.ProtonPass" },
+        "macos":   { "manager": "brew-cask", "id": "proton-pass" },
+        "linux":   { "manager": "flatpak", "id": "me.proton.Pass" }
+      }
+    },
+    {
+      "id": "protonpass-cli",
+      "description": "Proton Pass CLI",
+      "installers": {
+        "windows": { "manager": "winget", "id": "Proton.ProtonPass.CLI" },
+        "macos":   { "manager": "script", "url": "https://proton.me/download/pass-cli/install.sh" },
+        "linux":   { "manager": "script", "url": "https://proton.me/download/pass-cli/install.sh" }
+      }
+    },
+    {
+      "id": "copilot-cli",
+      "description": "GitHub Copilot CLI",
+      "installers": {
+        "windows": { "manager": "winget", "id": "GitHub.Copilot" },
+        "macos":   { "manager": "brew-cask", "id": "copilot-cli" },
+        "linux":   { "manager": "brew-cask", "id": "copilot-cli" }
+      }
+    },
+    {
+      "id": "visual-studio-2026",
+      "description": "Visual Studio 2026 Enterprise",
+      "installers": {
+        "windows": { "manager": "winget", "id": "VisualStudio2026" }
+      }
+    }
+  ]
+}

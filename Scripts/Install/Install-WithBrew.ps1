@@ -66,8 +66,11 @@ else {
 if ($LASTEXITCODE -eq 0) {
     Write-Host "  ✓ $PackageId installed successfully" -ForegroundColor Green
     
-    # Update PATH for current session
-    if (Test-Path "/opt/homebrew/bin/brew") {
+    # Update PATH for current session after successful install
+    if (Test-Path "/home/linuxbrew/.linuxbrew/bin/brew") {
+        $env:PATH = "/home/linuxbrew/.linuxbrew/bin:/home/linuxbrew/.linuxbrew/sbin:$env:PATH"
+    }
+    elseif (Test-Path "/opt/homebrew/bin/brew") {
         $env:PATH = "/opt/homebrew/bin:$env:PATH"
         & /opt/homebrew/bin/brew shellenv | Invoke-Expression
     }

@@ -139,7 +139,9 @@ Remove-Item `$tempScript -ErrorAction SilentlyContinue
 }
 else {
     Write-Host "✗ Unsupported platform or PowerShell version" -ForegroundColor Red
-    Write-Host "  This script requires Windows with PowerShell 5.1+ or PowerShell 7+" -ForegroundColor Yellow
+    Write-Host ""
+    Write-Host "On Linux, use the bash bootstrap script instead:" -ForegroundColor Yellow
+    Write-Host "  curl -fsSL https://stprofilewus3.blob.core.windows.net/profile-config/bootstrap.sh | bash" -ForegroundColor Cyan
     return
 }
 #endregion

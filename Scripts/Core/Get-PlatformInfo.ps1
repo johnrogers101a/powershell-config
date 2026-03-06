@@ -23,7 +23,8 @@ $ErrorActionPreference = 'Stop'
 
 # Detect platform using built-in variables
 $onWindows = (-not (Test-Path variable:global:IsWindows)) -or $global:IsWindows
-$onMacOS = (Test-Path variable:global:IsMacOS) -and $global:IsMacOS
+$onMacOS   = (Test-Path variable:global:IsMacOS)   -and $global:IsMacOS
+$onLinux   = (Test-Path variable:global:IsLinux)   -and $global:IsLinux
 
 # Determine OS string
 if ($onWindows) {
@@ -32,8 +33,11 @@ if ($onWindows) {
 elseif ($onMacOS) {
     $os = "macos"
 }
+elseif ($onLinux) {
+    $os = "linux"
+}
 else {
-    throw "Unsupported operating system. This installer only supports Windows and macOS."
+    throw "Unsupported operating system."
 }
 
 # Return platform info object
@@ -41,4 +45,5 @@ else {
     OS        = $os
     IsWindows = $onWindows
     IsMacOS   = $onMacOS
+    IsLinux   = $onLinux
 }
