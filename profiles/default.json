@@ -28,7 +28,7 @@
       "description": "Git Credential Manager — bundled with Git on Windows",
       "installers": {
         "macos":   { "manager": "brew-cask", "id": "git-credential-manager", "postInstall": "git-credential-manager configure" },
-        "linux":   { "manager": "brew-cask", "id": "git-credential-manager", "postInstall": "git-credential-manager configure" }
+        "linux":   { "manager": "script", "url": "https://stprofilewus3.blob.core.windows.net/profile-config/scripts/install-gcm-linux.sh" }
       }
     },
     {
