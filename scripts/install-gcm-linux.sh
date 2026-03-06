@@ -48,17 +48,14 @@ export PATH="$INSTALL_DIR:$PATH"
 echo "Configuring GCM..."
 git-credential-manager configure
 
-# Use gpg credential store — more reliable in terminal sessions than secretservice
-git config --global credential.credentialStore gpg
+# Use cache credential store — works without a graphical keyring or pass/gpg setup.
+# gh CLI handles GitHub auth; GCM handles Azure DevOps and other hosts.
+# cache TTL: 1 week (604800 seconds)
+git config --global credential.credentialStore cache
+git config --global credential.cacheOptions "--timeout 604800"
 
-# Generate a GPG key for GCM if none exists
-EXISTING_KEY=$(gpg --list-secret-keys --keyid-format LONG 2>/dev/null | grep "sec" | head -1)
-if [ -z "$EXISTING_KEY" ]; then
-  echo "Generating GPG key for credential storage..."
-  gpg --batch --quick-generate-key "$(git config --global user.name || echo 'Git User') <$(git config --global user.email || echo 'git@localhost')>" default default never
-  echo "✓ GPG key generated"
-else
-  echo "✓ GPG key already exists"
-fi
+# Remove any blank credential.helper entries left by previous GCM installs
+# that cause git to fall through and prompt for credentials
+git config --global --unset-all credential.helper 2>/dev/null || true
 
 echo "✓ Git Credential Manager installed and configured"
