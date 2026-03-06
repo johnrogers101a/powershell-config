@@ -48,4 +48,17 @@ export PATH="$INSTALL_DIR:$PATH"
 echo "Configuring GCM..."
 git-credential-manager configure
 
+# Use gpg credential store — more reliable in terminal sessions than secretservice
+git config --global credential.credentialStore gpg
+
+# Generate a GPG key for GCM if none exists
+EXISTING_KEY=$(gpg --list-secret-keys --keyid-format LONG 2>/dev/null | grep "sec" | head -1)
+if [ -z "$EXISTING_KEY" ]; then
+  echo "Generating GPG key for credential storage..."
+  gpg --batch --quick-generate-key "$(git config --global user.name || echo 'Git User') <$(git config --global user.email || echo 'git@localhost')>" default default never
+  echo "✓ GPG key generated"
+else
+  echo "✓ GPG key already exists"
+fi
+
 echo "✓ Git Credential Manager installed and configured"
