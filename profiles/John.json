@@ -108,8 +108,8 @@
       "description": "Proton Pass CLI",
       "installers": {
         "windows": { "manager": "winget", "id": "Proton.ProtonPass.CLI" },
-        "macos":   { "manager": "script", "url": "https://proton.me/download/pass-cli/install.sh" },
-        "linux":   { "manager": "script", "url": "https://proton.me/download/pass-cli/install.sh" }
+        "macos":   { "manager": "script", "url": "https://proton.me/download/pass-cli/install.sh", "skipIfCommand": "pass-cli" },
+        "linux":   { "manager": "script", "url": "https://proton.me/download/pass-cli/install.sh", "skipIfCommand": "pass-cli" }
       }
     },
     {

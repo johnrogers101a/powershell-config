@@ -33,9 +33,10 @@ if (-not (Get-Command flatpak -ErrorAction SilentlyContinue)) {
 }
 
 # Check if already installed in any installation (system or user)
+# Use `flatpak info` — more reliable than parsing list output
 Write-Host "Checking $PackageId..." -ForegroundColor Gray
-$installed = flatpak list --app --columns=application 2>&1 | Where-Object { $_ -eq $PackageId }
-if ($installed) {
+flatpak info $PackageId 2>&1 | Out-Null
+if ($LASTEXITCODE -eq 0) {
     Write-Host "  ✓ $PackageId is already installed" -ForegroundColor Green
     return "already-installed"
 }
