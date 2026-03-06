@@ -51,7 +51,7 @@ else {
 
 if ($LASTEXITCODE -eq 0) {
     Write-Host "  ✓ $PackageId is already installed" -ForegroundColor Green
-    return $true
+    return "already-installed"
 }
 
 # Install package

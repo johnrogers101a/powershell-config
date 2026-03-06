@@ -5,7 +5,7 @@ set -e
 
 ARCH=$(uname -m)
 case "$ARCH" in
-  x86_64)  ARCH_SLUG="amd64" ;;
+  x86_64)  ARCH_SLUG="x64" ;;
   aarch64) ARCH_SLUG="arm64" ;;
   *)       echo "Unsupported architecture: $ARCH"; exit 1 ;;
 esac
@@ -13,14 +13,27 @@ esac
 INSTALL_DIR="$HOME/.local/bin"
 mkdir -p "$INSTALL_DIR"
 
+# Check if already installed
+if command -v git-credential-manager &>/dev/null; then
+  echo "✓ git-credential-manager is already installed ($(git-credential-manager --version 2>/dev/null || echo 'unknown version'))"
+  git-credential-manager configure
+  exit 0
+fi
+
 echo "Fetching latest GCM release..."
-LATEST_URL=$(curl -fsSL "https://api.github.com/repos/git-ecosystem/git-credential-manager/releases/latest" \
-  | grep -o "\"browser_download_url\": \"[^\"]*gcm-linux_${ARCH_SLUG}\.[0-9.]*\.tar\.gz\"" \
-  | grep -o 'https://[^"]*' | head -1)
+API_RESPONSE=$(curl -fsSL "https://api.github.com/repos/git-ecosystem/git-credential-manager/releases/latest")
+LATEST_URL=$(echo "$API_RESPONSE" | python3 -c "
+import sys, json
+assets = json.load(sys.stdin)['assets']
+matches = [a['browser_download_url'] for a in assets
+           if 'linux-${ARCH_SLUG}' in a['name'] and a['name'].endswith('.tar.gz')
+           and 'symbols' not in a['name']]
+print(matches[0] if matches else '')
+" 2>/dev/null)
 
 if [ -z "$LATEST_URL" ]; then
-  # Fallback to a known-good release
-  LATEST_URL="https://github.com/git-ecosystem/git-credential-manager/releases/latest/download/gcm-linux_${ARCH_SLUG}.tar.gz"
+  echo "✗ Could not determine GCM download URL from GitHub API"
+  exit 1
 fi
 
 echo "Downloading GCM from $LATEST_URL ..."

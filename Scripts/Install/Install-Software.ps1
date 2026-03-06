@@ -107,19 +107,37 @@ foreach ($entry in $software) {
     Write-Host "[$id] $description" -ForegroundColor White
 
     $success = $false
+    $freshInstall = $false
+
+    # Skip if a command already provides this software
+    if ($installer.skipIfCommand) {
+        if (Get-Command $installer.skipIfCommand -ErrorAction SilentlyContinue) {
+            Write-Host "  ✓ Already available as '$($installer.skipIfCommand)' — skipping" -ForegroundColor Green
+            Write-Host ""
+            continue
+        }
+    }
 
     switch ($installer.manager) {
         "winget" {
-            $success = & $winGetScript -PackageId $installer.id
+            $result = & $winGetScript -PackageId $installer.id
+            $freshInstall = ($result -eq $true)
+            $success = ($result -ne $false)
         }
         "brew" {
-            $success = & $brewScript -PackageId $installer.id -Type "formula"
+            $result = & $brewScript -PackageId $installer.id -Type "formula"
+            $freshInstall = ($result -eq $true)
+            $success = ($result -ne $false)
         }
         "brew-cask" {
-            $success = & $brewScript -PackageId $installer.id -Type "cask"
+            $result = & $brewScript -PackageId $installer.id -Type "cask"
+            $freshInstall = ($result -eq $true)
+            $success = ($result -ne $false)
         }
         "flatpak" {
-            $success = & $flatpakScript -PackageId $installer.id
+            $result = & $flatpakScript -PackageId $installer.id
+            $freshInstall = ($result -eq $true)
+            $success = ($result -ne $false)
         }
         "script" {
             Write-Host "  Running install script from $($installer.url) ..." -ForegroundColor Yellow
@@ -133,7 +151,8 @@ foreach ($entry in $software) {
                 else {
                     bash -c "curl -fsSL '$($installer.url)' | bash"
                 }
-                $success = ($LASTEXITCODE -eq 0)
+                $freshInstall = ($LASTEXITCODE -eq 0)
+                $success = $freshInstall
                 if ($success) {
                     Write-Host "  ✓ Script completed successfully" -ForegroundColor Green
                 }
@@ -151,8 +170,8 @@ foreach ($entry in $software) {
         }
     }
 
-    # Run postInstall command if present and install succeeded (or package was already present)
-    if ($installer.postInstall) {
+    # Run postInstall only on fresh installs
+    if ($freshInstall -and $installer.postInstall) {
         Write-Host "  Post-install: $($installer.postInstall)" -ForegroundColor Gray
         try {
             $parts = $installer.postInstall -split '\s+', 2

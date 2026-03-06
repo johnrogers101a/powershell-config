@@ -36,8 +36,8 @@
       "description": "PowerShell 7+",
       "installers": {
         "windows": { "manager": "winget", "id": "Microsoft.PowerShell" },
-        "macos":   { "manager": "script", "url": "https://aka.ms/install-powershell.sh" },
-        "linux":   { "manager": "script", "url": "https://aka.ms/install-powershell.sh" }
+        "macos":   { "manager": "script", "url": "https://aka.ms/install-powershell.sh", "skipIfCommand": "pwsh" },
+        "linux":   { "manager": "script", "url": "https://aka.ms/install-powershell.sh", "skipIfCommand": "pwsh" }
       }
     },
     {
