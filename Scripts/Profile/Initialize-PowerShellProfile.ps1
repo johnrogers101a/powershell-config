@@ -43,7 +43,7 @@ param(
     [string]$ProfileScriptsDir
 )
 
-$ErrorActionPreference = 'Stop'
+$ErrorActionPreference = 'Continue'
 
 # Determine default paths relative to profile directory
 $profileDir = Split-Path -Parent $global:PROFILE.CurrentUserAllHosts
@@ -63,7 +63,8 @@ if ((Test-Path $binPath) -and ($env:PATH -notlike "*$binPath*")) {
 # Install required modules using helper script
 $installModuleScript = Join-Path $ProfileScriptsDir "Install-ModuleIfMissing.ps1"
 & $installModuleScript -ModuleName 'Terminal-Icons'
-& $installModuleScript -ModuleName 'posh-git'
+# Temporarily disable posh-git due to cache issue
+# & $installModuleScript -ModuleName 'posh-git'
 
 # Configure PSReadLine for better tab completion
 Set-PSReadLineKeyHandler -Key Tab -Function MenuComplete
@@ -136,6 +137,72 @@ function Publish-Profile {
 
 function Invoke-Installer {
     $scriptPath = Join-Path $PSScriptRoot "Invoke-Installer.ps1"
+    & $scriptPath @args
+}
+
+# WoW addon management commands
+function Wow-Download {
+    $scriptPath = Join-Path (Split-Path -Parent $PSScriptRoot) "WoW" "Invoke-WowDownload.ps1"
+    & $scriptPath @args
+}
+
+function Wow-Upload {
+    $scriptPath = Join-Path (Split-Path -Parent $PSScriptRoot) "WoW" "Invoke-WowUpload.ps1"
+    & $scriptPath @args
+}
+
+function New-WowConfig {
+    $scriptPath = Join-Path (Split-Path -Parent $PSScriptRoot) "WoW" "New-WowConfig.ps1"
+    & $scriptPath @args
+}
+
+function Get-WowConfig {
+    $scriptPath = Join-Path (Split-Path -Parent $PSScriptRoot) "WoW" "Get-WowConfig.ps1"
+    & $scriptPath @args
+}
+
+function Get-WowInstallations {
+    $scriptPath = Join-Path (Split-Path -Parent $PSScriptRoot) "WoW" "Get-WowInstallations.ps1"
+    & $scriptPath @args
+}
+
+function Get-InstalledAddons {
+    $scriptPath = Join-Path (Split-Path -Parent $PSScriptRoot) "WoW" "Get-InstalledAddons.ps1"
+    & $scriptPath @args
+}
+
+function Update-AddonsJson {
+    $scriptPath = Join-Path (Split-Path -Parent $PSScriptRoot) "WoW" "Update-AddonsJson.ps1"
+    & $scriptPath @args
+}
+
+function Get-Addons {
+    $scriptPath = Join-Path (Split-Path -Parent $PSScriptRoot) "WoW" "Invoke-GetAddons.ps1"
+    & $scriptPath @args
+}
+
+function Wow-Purge {
+    $scriptPath = Join-Path (Split-Path -Parent $PSScriptRoot) "WoW" "Invoke-WowPurge.ps1"
+    & $scriptPath @args
+}
+
+function Install-Addon {
+    $scriptPath = Join-Path (Split-Path -Parent $PSScriptRoot) "WoW" "Invoke-InstallAddon.ps1"
+    & $scriptPath @args
+}
+
+function Find-Addons {
+    $scriptPath = Join-Path (Split-Path -Parent $PSScriptRoot) "WoW" "Invoke-FindAddons.ps1"
+    & $scriptPath @args
+}
+
+function Show-Addons {
+    $scriptPath = Join-Path (Split-Path -Parent $PSScriptRoot) "WoW" "Invoke-ShowAddons.ps1"
+    & $scriptPath @args
+}
+
+function Remove-Addon {
+    $scriptPath = Join-Path (Split-Path -Parent $PSScriptRoot) "WoW" "Invoke-RemoveAddon.ps1"
     & $scriptPath @args
 }
 
