@@ -248,6 +248,7 @@ After installation, these commands are available in your PowerShell session:
 | `Install-Profile` | Installs software from a profile |
 | `Publish-Profile` | Uploads a profile to Azure |
 | `Show-Commands` | Displays all available custom commands |
+| `jarvis` | Launches GitHub Copilot CLI with the Jarvis agent pre-selected and `--yolo` permissions enabled |
 
 ## Troubleshooting
 
