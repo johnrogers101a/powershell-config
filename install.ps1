@@ -63,6 +63,7 @@ $ScriptsToDownload = @(
     "Scripts/Install/Install-OsUpdates.ps1"
     "Scripts/Install/Set-TimeZone.ps1"
     "Scripts/Install/Configure-Terminal.ps1"
+    "Scripts/Install/Configure-WindowsTerminal.ps1"
     "Scripts/Install/Install-Fonts.ps1"
     "Scripts/Profile/Install-ProfileFiles.ps1"
 )

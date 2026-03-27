@@ -38,9 +38,9 @@ foreach ($font in $Config.fonts) {
     Write-Host "  Installing $($font.name)..." -ForegroundColor Cyan
     
     $installCmd = $font.installCommand -split ' '
-    & $installCmd[0] @($installCmd[1..($installCmd.Length - 1)]) 2>&1 | Out-Null
-    
-    if ($LASTEXITCODE -eq 0) {
+    $process = Start-Process -FilePath $installCmd[0] -ArgumentList $installCmd[1..($installCmd.Length - 1)] -Wait -PassThru -WindowStyle Hidden
+
+    if ($process.ExitCode -eq 0) {
         Write-Host "  ✓ $($font.name) installed successfully" -ForegroundColor Green
     }
     else {
