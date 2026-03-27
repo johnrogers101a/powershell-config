@@ -29,6 +29,7 @@
     "Scripts/Profile/Install-Profile.ps1",
     "Scripts/Profile/Publish-Profile.ps1",
     "Scripts/Profile/Invoke-Installer.ps1",
+    "Scripts/Profile/Invoke-Jarvis.ps1",
     "Scripts/Profile/Set-DefaultWorkingDirectory.ps1",
     "Scripts/Profile/Initialize-PowerShellProfile.ps1"
   ],

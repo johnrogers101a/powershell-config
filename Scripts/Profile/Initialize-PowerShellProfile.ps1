@@ -140,6 +140,11 @@ function Invoke-Installer {
     & $scriptPath @args
 }
 
+function Jarvis {
+    $scriptPath = Join-Path $PSScriptRoot "Invoke-Jarvis.ps1"
+    & $scriptPath @args
+}
+
 # WoW addon management commands
 function Wow-Download {
     $scriptPath = Join-Path (Split-Path -Parent $PSScriptRoot) "WoW" "Invoke-WowDownload.ps1"
@@ -209,44 +214,71 @@ function Remove-Addon {
 function Show-Commands {
     $profileDir = Split-Path -Parent $global:PROFILE.CurrentUserAllHosts
     $scriptsDir = Join-Path $profileDir "Scripts/Profile"
-    
+
     # Get all scripts, exclude Initialize, Install-ProfileFiles, and any backup copies
     $scripts = Get-ChildItem -Path $scriptsDir -Filter "*.ps1" -ErrorAction SilentlyContinue |
-        Where-Object { 
+        Where-Object {
             $_.Name -notmatch '^Initialize-PowerShellProfile\.ps1$' -and
             $_.Name -notmatch '^Install-ProfileFiles\.ps1$' -and
             $_.Name -notmatch ' - Copy'
         }
-    
+
     if (-not $scripts) {
         Write-Host "No custom commands found." -ForegroundColor Yellow
         return
     }
-    
+
     Write-Host ""
     Write-Host "Custom Commands Available:" -ForegroundColor Cyan
-    
+
     # Calculate max command name length for alignment
     $maxLen = ($scripts | ForEach-Object { $_.BaseName.Length } | Measure-Object -Maximum).Maximum + 2
-    
+
     foreach ($script in $scripts | Sort-Object Name) {
         $cmdName = $script.BaseName
         $synopsis = ""
-        
+
         # Extract .SYNOPSIS from script file
         $content = Get-Content $script.FullName -Raw -ErrorAction SilentlyContinue
         if ($content -match '\.SYNOPSIS\s*\r?\n\s*(.+?)(?:\r?\n\s*\r?\n|\.DESCRIPTION|\.PARAMETER|\.EXAMPLE)') {
             $synopsis = $Matches[1].Trim()
         }
-        
+
         $padding = ' ' * ($maxLen - $cmdName.Length)
         Write-Host "  $cmdName$padding" -NoNewline -ForegroundColor Green
         Write-Host "- $synopsis" -ForegroundColor Gray
     }
-    
+
     Write-Host ""
     Write-Host "  Show-Commands$(' ' * ($maxLen - 13))" -NoNewline -ForegroundColor Green
     Write-Host "- Display this help message" -ForegroundColor Gray
+
+    # Build alias list by parsing function definitions in this file
+    # Aliases are functions whose name differs from the script they invoke
+    $initContent = Get-Content (Join-Path $scriptsDir "Initialize-PowerShellProfile.ps1") -Raw -ErrorAction SilentlyContinue
+    $aliases = @()
+    $pattern = '(?ms)function\s+([A-Za-z][\w-]+)\s*\{[^}]*?"([^"]+\.ps1)"'
+    $funcMatches = [regex]::Matches($initContent, $pattern)
+    foreach ($m in $funcMatches) {
+        $funcName = $m.Groups[1].Value
+        $scriptFile = [System.IO.Path]::GetFileNameWithoutExtension($m.Groups[2].Value)
+        if ($funcName -ne $scriptFile -and $funcName -ne 'Show-Commands') {
+            $aliases += [PSCustomObject]@{ Alias = $funcName; Command = $scriptFile }
+        }
+    }
+
+    if ($aliases.Count -gt 0) {
+        $aliasMaxLen = ($aliases | ForEach-Object { $_.Alias.Length } | Measure-Object -Maximum).Maximum + 2
+
+        Write-Host ""
+        Write-Host "Aliases:" -ForegroundColor Cyan
+        foreach ($a in $aliases | Sort-Object Alias) {
+            $padding = ' ' * ($aliasMaxLen - $a.Alias.Length)
+            Write-Host "  $($a.Alias)$padding" -NoNewline -ForegroundColor Yellow
+            Write-Host "-> $($a.Command)" -ForegroundColor Gray
+        }
+    }
+
     Write-Host ""
 }
 
