@@ -33,6 +33,13 @@ bld/
 [Ll]og/
 [Ll]ogs/
 
+# Additional build output patterns
+**/dist/
+**/out/
+**/build/
+**/coverage/
+**/*.tsbuildinfo
+
 # Visual Studio 2015/2017 cache/options directory
 .vs/
 
