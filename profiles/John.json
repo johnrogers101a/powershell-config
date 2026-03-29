@@ -2,7 +2,7 @@
   "name": "John",
   "description": "John's development environment",
   "createdAt": "2026-01-22T19:53:31Z",
-  "updatedAt": "2026-07-06T00:00:00Z",
+  "updatedAt": "2026-03-29T00:00:00Z",
   "timezone": "America/Los_Angeles",
   "software": [
     {
@@ -126,6 +126,47 @@
       "description": "Visual Studio 2026 Enterprise",
       "installers": {
         "windows": { "manager": "winget", "id": "VisualStudio2026" }
+      }
+    },
+    {
+      "id": "claude-code",
+      "description": "Claude Code CLI",
+      "installers": {
+        "windows": { "manager": "winget", "id": "Anthropic.ClaudeCode" }
+      }
+    },
+    {
+      "id": "twingate",
+      "description": "Twingate zero-trust network access client",
+      "installers": {
+        "windows": { "manager": "winget", "id": "Twingate.Client" }
+      }
+    },
+    {
+      "id": "7zip",
+      "description": "7-Zip file archiver",
+      "installers": {
+        "windows": { "manager": "winget", "id": "7zip.7zip" },
+        "macos":   { "manager": "brew", "id": "p7zip" },
+        "linux":   { "manager": "brew", "id": "p7zip" }
+      }
+    },
+    {
+      "id": "discord",
+      "description": "Discord",
+      "installers": {
+        "windows": { "manager": "winget", "id": "Discord.Discord" },
+        "macos":   { "manager": "brew-cask", "id": "discord" },
+        "linux":   { "manager": "flatpak", "id": "com.discordapp.Discord" }
+      }
+    },
+    {
+      "id": "steam",
+      "description": "Steam gaming platform",
+      "installers": {
+        "windows": { "manager": "winget", "id": "Valve.Steam" },
+        "macos":   { "manager": "brew-cask", "id": "steam" },
+        "linux":   { "manager": "flatpak", "id": "com.valvesoftware.Steam" }
       }
     }
   ]
